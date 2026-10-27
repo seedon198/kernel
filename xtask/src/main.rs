@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Workspace task runner.
 //!
 //! Invoked as `cargo xtask <command>` (see `.cargo/config.toml`). This runs on

@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "The hardened, capability-based microkernel."
+publish = false
 
 [dependencies]
 hal = { path = "../hal" }

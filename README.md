@@ -5,6 +5,7 @@
 **A from-scratch, security-focused operating system for x86-64 — a hardened
 Rust microkernel with native offensive-security tooling.**
 
+[![CI](https://github.com/seedon198/kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/seedon198/kernel/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)
 ![Arch: x86--64](https://img.shields.io/badge/arch-x86--64-informational)

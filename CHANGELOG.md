@@ -23,3 +23,8 @@ All notable changes are documented here. The format follows
   crates; `cargo xtask build` cross-compiles the kernel to
   `x86_64-unknown-none`. `hal` owns the only `unsafe` (a `hlt` halt loop); the
   `kernel` binary links with `_start` → `kmain` and a halting panic handler.
+- CI pipeline (#8, part of #7): GitHub Actions running rustfmt, clippy
+  (`-D warnings`) for the bare-metal and host crates, `cargo xtask build`, the
+  `scripts/check-unsafe.sh` policy check, and `cargo deny` / `cargo audit` for
+  supply chain. `deny.toml` added. CI badge in the README. The QEMU boot smoke
+  test is deferred to when the boot path (#2–#5) lands.
