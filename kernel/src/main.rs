@@ -29,6 +29,15 @@ fn kmain(boot_info: &BootInfo) -> ! {
     hal::gdt::init();
     info!("gdt: loaded GDT, TSS, and segment registers");
 
+    hal::idt::init();
+    info!("idt: installed interrupt descriptor table");
+
+    // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
+    // trap, so the handler prints a report and execution resumes here.
+    debug!("triggering a test breakpoint (#BP)...");
+    hal::idt::breakpoint();
+    info!("resumed after breakpoint");
+
     info!("kernel: halting (no scheduler yet)");
 
     hal::cpu::halt_loop();

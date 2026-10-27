@@ -11,8 +11,10 @@
 //! `#![forbid(unsafe_code)]` and reach the hardware only through the safe
 //! abstractions exposed here.
 
+mod cell;
 pub mod cpu;
 pub mod gdt;
+pub mod idt;
 pub mod io;
 pub mod serial;
 pub mod sync;
