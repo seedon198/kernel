@@ -16,7 +16,8 @@
 //! through `hal`.
 #![allow(unsafe_code)]
 
-use boot_info::BootInfo;
+use boot_info::{BootInfo, MemoryRegion, RegionKind};
+use limine::memory_map::EntryType;
 use limine::request::{
     ExecutableAddressRequest, HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker,
 };
@@ -66,13 +67,39 @@ pub extern "C" fn _start() -> ! {
         hal::cpu::halt_loop();
     }
 
-    // Touch each request so the linker cannot drop it, and so a missing
-    // response surfaces here rather than as a mysterious fault later. Fuller
-    // translation into `BootInfo` (memory map, HHDM, kernel base) lands in M2.
-    let _ = MEMORY_MAP.get_response();
-    let _ = HHDM.get_response();
-    let _ = KERNEL_ADDRESS.get_response();
+    let mut boot_info = BootInfo::new();
 
-    let boot_info = BootInfo::new();
+    if let Some(hhdm) = HHDM.get_response() {
+        boot_info.hhdm_offset = hhdm.offset();
+    }
+    if let Some(addr) = KERNEL_ADDRESS.get_response() {
+        boot_info.kernel_phys_base = addr.physical_base();
+        boot_info.kernel_virt_base = addr.virtual_base();
+    }
+    if let Some(mmap) = MEMORY_MAP.get_response() {
+        for entry in mmap.entries() {
+            boot_info.push_region(MemoryRegion {
+                base: entry.base,
+                length: entry.length,
+                kind: region_kind(entry.entry_type),
+            });
+        }
+    }
+
     crate::kmain(&boot_info)
+}
+
+/// Translate a Limine memory-map entry type into our architecture-neutral kind.
+fn region_kind(entry_type: EntryType) -> RegionKind {
+    match entry_type {
+        EntryType::USABLE => RegionKind::Usable,
+        EntryType::RESERVED => RegionKind::Reserved,
+        EntryType::BOOTLOADER_RECLAIMABLE => RegionKind::BootloaderReclaimable,
+        EntryType::EXECUTABLE_AND_MODULES => RegionKind::KernelAndModules,
+        EntryType::FRAMEBUFFER => RegionKind::Framebuffer,
+        EntryType::ACPI_RECLAIMABLE => RegionKind::AcpiReclaimable,
+        EntryType::ACPI_NVS => RegionKind::AcpiNvs,
+        EntryType::BAD_MEMORY => RegionKind::BadMemory,
+        _ => RegionKind::Other,
+    }
 }

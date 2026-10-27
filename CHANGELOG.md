@@ -80,3 +80,9 @@ All notable changes are documented here. The format follows
   handler prints the message, location, and a backtrace; fatal exceptions add a
   backtrace to their register dump. Addresses resolve with
   `llvm-addr2line -e <kernel> <addr>` (verified against a real call chain).
+- Memory map & CPU features (#13): the boot code parses the Limine memory map
+  into `BootInfo` (regions copied into a fixed array; usable/total RAM, HHDM
+  offset, kernel phys/virt base), and `hal::cpuid` detects the CPU vendor, brand,
+  and features (NX, SSE2, SMEP, SMAP, x2APIC, XSAVE, PCID, 1 GiB pages, RDRAND,
+  invariant TSC, syscall). `kmain` logs a RAM and CPU summary and asserts NX +
+  SSE2 are present. Host unit tests cover the `BootInfo` accounting.
