@@ -40,3 +40,8 @@ All notable changes are documented here. The format follows
   and builds a hybrid BIOS + UEFI image at `build/kernel.iso` via `xorriso` +
   `limine bios-install`. UEFI boot verified in QEMU (reaches long mode, clean
   handoff to the kernel).
+- 16550 UART serial driver (#5): `hal::io` (raw port I/O) and `hal::serial`
+  (polled COM1 driver with a loopback self-test, `\n`→`\r\n`, and a
+  `core::fmt::Write` impl). `kmain` prints "hello from the kernel" and the panic
+  handler reports over serial. First visible end-to-end boot, verified in QEMU
+  (UEFI): `hello from the kernel`.
