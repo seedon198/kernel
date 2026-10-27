@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  # Format, lint, and cross-compile the kernel. The toolchain, components and
+  # target are pinned by rust-toolchain.toml, which `rustup show` installs.
+  build-lint:
+    name: Build & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned toolchain (from rust-toolchain.toml)
+        run: |
+          rustup show
+          rustc --version && cargo --version
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      # Bare-metal crates: lint for the kernel target. No `--all-targets`: the
+      # test harness needs std and cannot build for a no_std bare-metal target.
+      - name: clippy (bare metal)
+        run: >
+          cargo clippy
+          -p kernel -p hal -p boot-info
+          --target x86_64-unknown-none
+          -- -D warnings
+
+      # Host crates and host-side tests (xtask, and boot-info's unit tests,
+      # which run on the host).
+      - name: clippy (host)
+        run: cargo clippy -p xtask -p boot-info --all-targets -- -D warnings
+
+      - name: Host unit tests
+        run: cargo test -p boot-info
+
+      - name: Build kernel
+        run: cargo xtask build
+
+  # Enforce the unsafe-code policy (ADR 0007).
+  unsafe-policy:
+    name: Unsafe policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check unsafe is confined to hal
+        run: ./scripts/check-unsafe.sh
+
+  # Supply-chain: advisories, licenses, sources, bans.
+  supply-chain:
+    name: Supply chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned toolchain
+        run: rustup show
+      - name: Install cargo-deny and cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-audit
+      - name: cargo deny
+        run: cargo deny check
+      - name: cargo audit
+        run: cargo audit
+
+  # Placeholder for the QEMU boot smoke test — added once the Limine boot path
+  # (#2-#5) lands, so there is something to boot. Tracked by #7.
