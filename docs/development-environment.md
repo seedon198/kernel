@@ -74,28 +74,40 @@ rustup component add rust-src llvm-tools clippy rustfmt
 ```
 
 On an x86-64 Linux host QEMU can use KVM for near-native speed
-(`cargo xtask run --kvm`, once available).
+(`cargo xtask run --kvm`).
 
 ## Windows (WSL2)
 
 Install Ubuntu under WSL2 and follow the Linux steps. QEMU's display works via
 WSLg; serial output works everywhere.
 
+## Running
+
+`cargo xtask run` builds the ISO and boots it in QEMU, with the kernel's serial
+output on your terminal. It defaults to **UEFI** (auto-locating OVMF firmware;
+set `OVMF=/path/to/edk2-x86_64-code.fd` to override). Flags:
+
+```sh
+cargo xtask run                 # UEFI boot (recommended)
+cargo xtask run --bios          # SeaBIOS boot (flaky on QEMU/macOS; fine on Linux)
+cargo xtask run --kvm           # enable KVM (Linux x86-64 hosts)
+cargo xtask run -- -d int,cpu_reset   # pass extra flags through to QEMU
+```
+
 ## Debugging
 
-QEMU exposes a GDB remote stub (wired up in M0):
+`cargo xtask debug` boots QEMU paused with a GDB remote stub on `:1234`:
 
 ```sh
 cargo xtask debug          # boots QEMU paused, listening on :1234
 # another terminal:
-x86_64-elf-gdb -ex "target remote :1234" target/.../kernel
+x86_64-elf-gdb target/x86_64-unknown-none/debug/kernel -ex "target remote :1234"
 # or
-lldb -o "gdb-remote 1234" target/.../kernel
+lldb target/x86_64-unknown-none/debug/kernel -o "gdb-remote 1234"
 ```
 
-Useful QEMU options (passthrough via `xtask`): `-serial stdio`,
-`-d int,cpu_reset -no-reboot` (trace interrupts, stop on triple fault),
-`-monitor stdio`, `-M q35`.
+Useful QEMU options (passthrough after `--`): `-d int,cpu_reset` (trace
+interrupts, stop on triple fault), `-monitor stdio`.
 
 ## Testing on real hardware
 

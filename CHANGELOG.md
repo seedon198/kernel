@@ -45,3 +45,7 @@ All notable changes are documented here. The format follows
   `core::fmt::Write` impl). `kmain` prints "hello from the kernel" and the panic
   handler reports over serial. First visible end-to-end boot, verified in QEMU
   (UEFI): `hello from the kernel`.
+- `cargo xtask run` / `debug` (#6): build the ISO and boot it in QEMU in one
+  command. Defaults to UEFI with automatic OVMF discovery (`OVMF` env override);
+  `--bios` and `--kvm` flags; extra args pass through after `--`. `debug` boots
+  paused with a GDB stub on `:1234`.
