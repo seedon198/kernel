@@ -1,0 +1,37 @@
+name: Security tooling / capability
+description: Propose an offensive-security capability or native tool
+labels: ["type:feature", "area:tooling", "status:needs-design"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for raw packet access, scanners, sniffers, fuzzers, the
+        scripting runtime, etc. Please confirm the ethical boundary first.
+  - type: textarea
+    id: capability
+    attributes:
+      label: What capability or tool?
+      description: What should it let an authorized operator do?
+    validations:
+      required: true
+  - type: dropdown
+    id: boundary
+    attributes:
+      label: Ethical boundary
+      description: See the threat model.
+      options:
+        - "Dual-use primitive for authorized testing (raw sockets, scan, fuzz)"
+        - "Not sure — needs discussion"
+    validations:
+      required: true
+  - type: textarea
+    id: confinement
+    attributes:
+      label: How is it confined?
+      description: Which capability gates it? Which server holds it? Blast radius if abused?
+    validations:
+      required: true
+  - type: textarea
+    id: refs
+    attributes:
+      label: References

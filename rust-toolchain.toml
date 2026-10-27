@@ -1,0 +1,8 @@
+# Pinned so every contributor and CI build uses the same toolchain.
+# Start on stable with the bare-metal target. If a custom target spec and
+# -Zbuild-std become necessary (ADR 0002), switch `channel` to a pinned
+# nightly and add: components = ["rust-src"].
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy", "llvm-tools"]
+targets = ["x86_64-unknown-none"]

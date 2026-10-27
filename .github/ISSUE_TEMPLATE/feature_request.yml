@@ -1,0 +1,42 @@
+name: Feature / task
+description: Propose a feature, subsystem, or task
+labels: ["type:feature", "status:triage"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should exist when this is done, and why?
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: Proposed design
+      description: Approach, data structures, interfaces. Link relevant spec sections and ADRs.
+  - type: dropdown
+    id: tcb
+    attributes:
+      label: Does this touch the TCB (kernel or hal)?
+      options:
+        - "No — user-space server or tool"
+        - "Yes — kernel"
+        - "Yes — hal (adds/changes unsafe)"
+        - "Not sure"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] ...
+        - [ ] Docs updated in docs/
+        - [ ] Threat model updated (if security-relevant)
+    validations:
+      required: true
+  - type: textarea
+    id: refs
+    attributes:
+      label: References
+      description: Intel SDM / AMD APM sections, OSDev wiki, seL4, specs.

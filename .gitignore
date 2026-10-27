@@ -1,0 +1,21 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+*.pdb
+
+# Build output
+/build/
+*.elf
+*.iso
+*.img
+*.hdd
+
+# Fetched dependencies
+/limine/
+/ovmf/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

@@ -1,0 +1,52 @@
+name: Bug report
+description: Something crashes, hangs, or behaves incorrectly
+labels: ["type:bug", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting a bug! Please fill in as much as you can.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. git checkout <commit>
+        2. cargo xtask run
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit hash
+    validations:
+      required: true
+  - type: dropdown
+    id: env
+    attributes:
+      label: Where does it run?
+      options:
+        - QEMU (TCG)
+        - QEMU (KVM / HVF)
+        - Real hardware (USB boot)
+        - Other emulator
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Host OS, Rust and QEMU versions
+      placeholder: macOS 26 arm64, rustc 1.94, QEMU 10.0
+  - type: textarea
+    id: log
+    attributes:
+      label: Serial log / QEMU output
+      description: For crashes, rerun with `-d int,cpu_reset -no-reboot`.
+      render: text
