@@ -67,15 +67,21 @@ pub fn enabled(level: Level) -> bool {
     (level as u8) <= MAX_LEVEL.load(Ordering::Relaxed)
 }
 
-/// Emit one formatted record. Prefer the [`info!`](crate::info) family of
-/// macros over calling this directly.
+/// Emit one formatted record to every sink (serial, and the framebuffer console
+/// once initialized). Prefer the [`info!`](crate::info) family of macros over
+/// calling this directly.
 pub fn write(level: Level, args: core::fmt::Arguments) {
     use core::fmt::Write;
     if !enabled(level) {
         return;
     }
-    let mut serial = SERIAL.lock();
-    let _ = writeln!(serial, "[{}] {}", level.as_str(), args);
+    {
+        let mut serial = SERIAL.lock();
+        let _ = writeln!(serial, "[{}] {}", level.as_str(), args);
+    }
+    // Second sink: the framebuffer console (a no-op until initialized). Its own
+    // lock is taken after the serial lock is released, so the two never nest.
+    let _ = writeln!(hal::framebuffer::Writer, "[{}] {}", level.as_str(), args);
 }
 
 /// Emit a log record at an explicit [`Level`]. The level-specific macros

@@ -15,6 +15,8 @@ pub mod backtrace;
 mod cell;
 pub mod cpu;
 pub mod cpuid;
+mod font;
+pub mod framebuffer;
 pub mod gdt;
 pub mod idt;
 pub mod io;

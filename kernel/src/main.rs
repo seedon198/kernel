@@ -23,6 +23,22 @@ use hal::serial::SerialPort;
 fn kmain(boot_info: &BootInfo) -> ! {
     log::init();
     log::set_max_level(log::Level::Debug); // verbose during early bring-up
+
+    // Bring up the on-screen console as a second log sink, if we have a
+    // framebuffer. Serial remains the primary sink.
+    if let Some(fb) = boot_info.framebuffer {
+        hal::framebuffer::init(hal::framebuffer::FramebufferInfo {
+            address: fb.address,
+            width: fb.width as usize,
+            height: fb.height as usize,
+            pitch: fb.pitch as usize,
+            bpp: fb.bpp,
+            red_shift: fb.red_shift,
+            green_shift: fb.green_shift,
+            blue_shift: fb.blue_shift,
+        });
+    }
+
     info!("hello from the kernel");
     debug!("boot info received at {:p}", boot_info);
 

@@ -86,3 +86,8 @@ All notable changes are documented here. The format follows
   and features (NX, SSE2, SMEP, SMAP, x2APIC, XSAVE, PCID, 1 GiB pages, RDRAND,
   invariant TSC, syscall). `kmain` logs a RAM and CPU summary and asserts NX +
   SSE2 are present. Host unit tests cover the `BootInfo` accounting.
+- Framebuffer console (#14): `hal::framebuffer` renders the bundled public-domain
+  8x8 bitmap font (`hal::font`) onto the Limine framebuffer — glyphs, newlines,
+  tabs, and scrolling — and registers as a second log sink, so kernel output
+  appears on screen as well as serial (the path that matters on real hardware
+  without a serial port). `BootInfo` carries the framebuffer geometry.
