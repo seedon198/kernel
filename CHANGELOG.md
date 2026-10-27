@@ -28,3 +28,10 @@ All notable changes are documented here. The format follows
   `scripts/check-unsafe.sh` policy check, and `cargo deny` / `cargo audit` for
   supply chain. `deny.toml` added. CI badge in the README. The QEMU boot smoke
   test is deferred to when the boot path (#2–#5) lands.
+- Higher-half linker script and Limine requests (#2): `kernel/arch/x86_64/linker.ld`
+  links the kernel at `0xffffffff80000000` with separate R-X / R / RW segments.
+  `kernel/src/boot/` declares the Limine requests (base revision, memory map,
+  HHDM, executable address) and the ELF `_start`, which validates the protocol
+  and calls `kmain`. `limine` 0.5 dependency (stable-compatible). All
+  bootloader/linker `unsafe` is confined to the `boot` module, per the updated
+  ADR 0007.

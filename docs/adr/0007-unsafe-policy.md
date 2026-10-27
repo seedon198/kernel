@@ -35,36 +35,44 @@ host-testable crates and **clippy** (`undocumented_unsafe_blocks`) in CI.
 Formal verification (Option 3) remains a "beyond" goal, layered on later
 without changing this policy.
 
-### Exception: the binary entry shim
+### Exception: the kernel `boot` module
 
-As of the Rust 2024 edition, `#[no_mangle]` is classified as an *unsafe
-attribute* (`#[unsafe(no_mangle)]`), and `#![forbid(unsafe_code)]` rejects it
-with no possible local override — so a crate that defines the ELF entry symbol
-`_start` cannot be `forbid`. This attribute is linker glue, not memory-unsafe
-code.
+Two kinds of unavoidable linker glue are classified as *unsafe attributes* and
+so rejected by `#![forbid(unsafe_code)]` with no possible local override:
 
-Therefore the **kernel binary crate** uses `#![deny(unsafe_code)]` (not
-`forbid`) with exactly **one** `#[allow(unsafe_code)]`, placed on the `_start`
-shim, whose body only builds `BootInfo` and calls the safe `kmain`. `deny`
-keeps every other line in the crate unable to use `unsafe`; the single
-allowance is greppable and **CI-enforced**: CI asserts that outside `hal/` the
-only `#[allow(unsafe_code)]` attribute is the one on `_start`, and that no
-crate re-enables `unsafe` otherwise. Pure-logic crates (`libs/*`, and later the
-user-space servers and tools) remain `#![forbid(unsafe_code)]`.
+- `#[unsafe(no_mangle)]` on the ELF entry symbol `_start`; and
+- `#[unsafe(link_section = ".requests")]` on each Limine request static, which
+  places them where the bootloader can find them.
 
-(We chose this over introducing a separate `boot` bin that wraps a `forbid`
-kernel *library*: the one audited, CI-checked line is simpler than an extra
-crate, and the guarantee — no `unsafe` anywhere in kernel logic — is the same.)
+Neither is memory-unsafe *code* — they are placement/linker directives — but
+both need `unsafe`. They are all bootloader-handoff concerns, so they live in
+one place: the kernel's **`boot` module** (`kernel/src/boot/`). That module
+carries a single `#![allow(unsafe_code)]`; the kernel crate root stays
+`#![deny(unsafe_code)]`, so all kernel *logic* (`kmain` and below) still cannot
+use `unsafe`. Pure-logic crates (`libs/*`, and later the user-space servers and
+tools) remain `#![forbid(unsafe_code)]`.
+
+This is **CI-enforced** (`scripts/check-unsafe.sh`): outside `hal/`, an
+`#[allow(unsafe_code)]`/`#![allow(unsafe_code)]` attribute may appear **only**
+within `kernel/src/boot/`; every other non-`hal` crate root must declare
+`forbid`/`deny(unsafe_code)`.
+
+So the trusted, `unsafe`-bearing surface is exactly two small, reviewed places:
+the `hal` crate and the kernel `boot` module.
+
+(We chose this over a separate `boot` *crate* wrapping a `forbid` kernel
+library: keeping the entry in the kernel binary is less churn, and the
+guarantee — no `unsafe` in kernel logic, all glue confined and CI-checked — is
+the same.)
 
 ## Consequences
 
-- The dangerous surface is one small, reviewable crate (`hal`) plus a single
-  CI-checked attribute line, instead of the whole tree — a concrete,
-  enforceable security property.
+- The dangerous surface is two small, reviewable places (`hal` and the kernel
+  `boot` module), instead of the whole tree — a concrete, enforceable security
+  property.
 - Forces clean, safe abstractions over hardware, which improves design.
 - Some ergonomics cost: occasionally a safe wrapper must be added to `hal`
   before higher layers can use a feature. Accepted.
 - CI must enforce it (`forbid`/`deny` are per-crate; a grep guards against a
-  stray `#[allow(unsafe_code)]` or `unsafe` token outside `hal/`, allowing only
-  the one `_start` allowance). The grep must match the *attribute*, not
-  mentions of it in comments or docs.
+  stray `#[allow(unsafe_code)]` outside `hal/` and `kernel/src/boot/`). The grep
+  matches the *attribute*, not mentions of it in comments or docs.
