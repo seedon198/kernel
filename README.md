@@ -67,7 +67,7 @@ Development works on **macOS (Apple Silicon and Intel)**, **Linux**, and
 rustup target add x86_64-unknown-none
 brew install qemu xorriso
 git clone https://github.com/seedon198/kernel.git && cd kernel
-cargo xtask run        # (available after M0) build the ISO and boot in QEMU
+cargo xtask run        # build the ISO and boot it in QEMU (serial on your terminal)
 ```
 
 ## Project layout (planned)

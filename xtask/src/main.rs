@@ -3,8 +3,14 @@
 //! Workspace task runner.
 //!
 //! Invoked as `cargo xtask <command>` (see `.cargo/config.toml`). Runs on the
-//! host and orchestrates cross-compiling the kernel, fetching Limine, and
-//! assembling a bootable ISO. QEMU run/debug targets land in #6.
+//! host and orchestrates cross-compiling the kernel, fetching Limine,
+//! assembling a bootable ISO, and launching it in QEMU.
+//!
+//! Commands:
+//! - `build`                    cross-compile the kernel
+//! - `iso`                      build `build/kernel.iso`
+//! - `run [--bios|--kvm] [-- <qemu args>]`    build the ISO and boot in QEMU
+//! - `debug [--bios|--kvm] [-- <qemu args>]`  boot paused with a GDB stub
 
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
@@ -19,7 +25,9 @@ const LIMINE_REPO: &str = "https://github.com/limine-bootloader/limine.git";
 const LIMINE_BRANCH: &str = "v11.x-binary";
 
 fn main() {
-    let task = std::env::args().nth(1).unwrap_or_default();
+    let mut args = std::env::args().skip(1);
+    let task = args.next().unwrap_or_default();
+    let rest: Vec<String> = args.collect();
     match task.as_str() {
         "build" => {
             build();
@@ -27,6 +35,8 @@ fn main() {
         "iso" => {
             iso();
         }
+        "run" => boot(&rest, false),
+        "debug" => boot(&rest, true),
         "" => usage(2),
         other => {
             eprintln!("unknown xtask command: {other:?}");
@@ -36,7 +46,7 @@ fn main() {
 }
 
 fn usage(code: i32) -> ! {
-    eprintln!("usage: cargo xtask <build|iso>");
+    eprintln!("usage: cargo xtask <build|iso|run|debug> [--bios|--kvm] [-- <qemu args>]");
     exit(code);
 }
 
@@ -52,6 +62,15 @@ fn run(program: &str, args: &[&str]) {
             status.code().unwrap_or(-1)
         ));
     }
+}
+
+/// Run a command (owned args), inheriting stdio, and return its exit code.
+fn exec(program: &str, args: &[String]) -> i32 {
+    let status = Command::new(program)
+        .args(args)
+        .status()
+        .unwrap_or_else(|e| fail(&format!("failed to spawn `{program}`: {e}")));
+    status.code().unwrap_or(1)
 }
 
 fn fail(msg: &str) -> ! {
@@ -164,4 +183,124 @@ fn iso() {
     run(limine_tool.to_str().unwrap(), &["bios-install", out]);
 
     println!("ISO built: {out}");
+}
+
+/// Candidate locations for the OVMF (edk2) x86-64 firmware code file, across
+/// Homebrew (macOS) and common Linux distributions.
+const OVMF_CANDIDATES: &[&str] = &[
+    "/opt/homebrew/opt/qemu/share/qemu/edk2-x86_64-code.fd",
+    "/opt/homebrew/share/qemu/edk2-x86_64-code.fd",
+    "/usr/local/opt/qemu/share/qemu/edk2-x86_64-code.fd",
+    "/usr/local/share/qemu/edk2-x86_64-code.fd",
+    "/usr/share/qemu/edk2-x86_64-code.fd",
+    "/usr/share/OVMF/OVMF_CODE.fd",
+    "/usr/share/OVMF/OVMF_CODE_4M.fd",
+    "/usr/share/edk2/x64/OVMF_CODE.fd",
+    "/usr/share/edk2-ovmf/x64/OVMF_CODE.fd",
+];
+
+/// Locate OVMF firmware for UEFI boot: the `OVMF`/`OVMF_CODE` env var if set,
+/// else the first existing well-known path.
+fn find_ovmf() -> Option<PathBuf> {
+    for var in ["OVMF", "OVMF_CODE"] {
+        if let Ok(path) = std::env::var(var) {
+            let path = PathBuf::from(path);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+    }
+    OVMF_CANDIDATES
+        .iter()
+        .map(PathBuf::from)
+        .find(|p| p.exists())
+}
+
+/// Build a fresh ISO and boot it in QEMU. With `debug`, QEMU starts paused with
+/// a GDB stub on `localhost:1234`. Defaults to UEFI (OVMF); `--bios` uses
+/// SeaBIOS, `--kvm` enables KVM (Linux). Arguments after `--` pass to QEMU.
+fn boot(opts: &[String], debug: bool) -> ! {
+    let mut bios = false;
+    let mut kvm = false;
+    let mut passthrough: Vec<String> = Vec::new();
+    let mut iter = opts.iter();
+    while let Some(opt) = iter.next() {
+        match opt.as_str() {
+            "--bios" => bios = true,
+            "--uefi" => bios = false,
+            "--kvm" => kvm = true,
+            "--" => {
+                passthrough.extend(iter.cloned());
+                break;
+            }
+            other => fail(&format!(
+                "unknown option {other:?} (use: --bios | --uefi | --kvm | -- <qemu args>)"
+            )),
+        }
+    }
+
+    iso(); // always boot a fresh image
+
+    let iso_path = "build/kernel.iso";
+    let mut qargs: Vec<String> = [
+        "-M",
+        "q35",
+        "-m",
+        "256M",
+        "-cdrom",
+        iso_path,
+        "-serial",
+        "stdio",
+        "-no-reboot",
+    ]
+    .iter()
+    .map(|s| (*s).to_string())
+    .collect();
+
+    if kvm {
+        qargs.push("-enable-kvm".to_string());
+    }
+
+    if bios {
+        qargs.push("-boot".to_string());
+        qargs.push("d".to_string());
+    } else {
+        let ovmf = find_ovmf().unwrap_or_else(|| {
+            fail(
+                "OVMF firmware not found for UEFI boot. Set OVMF=/path/to/edk2-x86_64-code.fd, \
+                 or use `--bios`.",
+            )
+        });
+        qargs.push("-drive".to_string());
+        qargs.push(format!(
+            "if=pflash,unit=0,format=raw,file={},readonly=on",
+            ovmf.display()
+        ));
+    }
+
+    if debug {
+        // GDB stub on :1234, CPU halted until the debugger continues.
+        qargs.push("-s".to_string());
+        qargs.push("-S".to_string());
+        let kernel = PathBuf::from("target")
+            .join(KERNEL_TARGET)
+            .join("debug")
+            .join("kernel");
+        eprintln!("xtask: QEMU paused with a GDB stub on :1234. Connect with:");
+        eprintln!(
+            "    x86_64-elf-gdb {} -ex 'target remote :1234'",
+            kernel.display()
+        );
+        eprintln!("    (or: lldb {} -o 'gdb-remote 1234')", kernel.display());
+    }
+
+    qargs.extend(passthrough);
+
+    let mode = if bios { "BIOS" } else { "UEFI" };
+    println!(
+        "xtask: booting {iso_path} in QEMU ({mode}{})",
+        if debug { ", paused for debugger" } else { "" }
+    );
+    let code = exec("qemu-system-x86_64", &qargs);
+    exit(code);
 }
