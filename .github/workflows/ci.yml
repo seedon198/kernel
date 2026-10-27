@@ -12,7 +12,11 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -D warnings
+# NOTE: do not set a global RUSTFLAGS here. As an env var it *replaces* (does
+# not merge with) the `[target.x86_64-unknown-none]` rustflags in
+# .cargo/config.toml, which carry the kernel's linker script and relocation
+# model — clobbering them breaks the higher-half link. Warnings are gated by
+# the clippy steps below (`-D warnings`), which also catch rustc warnings.
 
 jobs:
   # Format, lint, and cross-compile the kernel. The toolchain, components and

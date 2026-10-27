@@ -3,3 +3,14 @@
 # (xtask) build for the host while the kernel is cross-compiled explicitly.
 [alias]
 xtask = "run --package xtask --"
+
+# Flags for the bare-metal kernel target. These apply to every crate built for
+# x86_64-unknown-none; the link-arg only takes effect when linking the kernel
+# binary (ignored for rlibs). The linker-script path is relative to the
+# workspace root, which is where `cargo xtask build` runs cargo from.
+[target.x86_64-unknown-none]
+rustflags = [
+    "-C", "relocation-model=static",
+    "-C", "link-arg=-Tkernel/arch/x86_64/linker.ld",
+]
+

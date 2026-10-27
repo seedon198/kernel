@@ -47,14 +47,16 @@ make it, and it is written in safe Rust.
 
 The whole system is **Rust, `no_std`**. Pure-logic crates (`libs/*`, and the
 user-space servers and tools) compile with `#![forbid(unsafe_code)]`. The
-`kernel` binary uses `#![deny(unsafe_code)]` with a single, CI-checked
-`#[allow(unsafe_code)]` on the `_start` entry shim — the ELF entry symbol needs
-the `#[unsafe(no_mangle)]` attribute (linker glue, not memory-unsafe code), and
-`forbid` cannot allow it anywhere. Raw hardware access — reading MSRs, touching
-MMIO, writing page tables, inline assembly — lives **only** in the `hal` crate,
-where every `unsafe` block carries a `// SAFETY:` comment stating the invariant
-it relies on. This concentrates the auditable, dangerous code into one small,
-reviewed place. See [ADR 0001](../adr/0001-implementation-language.md) and
+`kernel` binary uses `#![deny(unsafe_code)]`; its only `unsafe` is confined to
+the `boot` module (`kernel/src/boot/`, CI-enforced), which holds the ELF entry
+point and the Limine request statics — linker glue needing the
+`#[unsafe(no_mangle)]`/`#[unsafe(link_section)]` attributes, not memory-unsafe
+code. Kernel logic (`kmain` and below) stays `unsafe`-free. Raw hardware access
+— reading MSRs, touching MMIO, writing page tables, inline assembly — lives
+**only** in the `hal` crate, where every `unsafe` block carries a `// SAFETY:`
+comment stating the invariant it relies on. This concentrates the auditable,
+dangerous code into two small, reviewed places (`hal` and the kernel `boot`
+module). See [ADR 0001](../adr/0001-implementation-language.md) and
 [ADR 0007](../adr/0007-unsafe-policy.md).
 
 ## Security model: capabilities
