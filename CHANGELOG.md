@@ -62,3 +62,8 @@ All notable changes are documented here. The format follows
   macros. `kmain` now logs `[INFO]`/`[DEBUG]` records; the panic handler
   deliberately bypasses the logger (writes to its own serial port) to stay
   deadlock-free.
+- GDT and TSS (#9): `hal::gdt` installs our own GDT (kernel + user code/data
+  descriptors ordered for a future `syscall`/`sysret`) and a 64-bit TSS with
+  dedicated IST stacks for #DF, NMI, and #MC plus an `rsp0` stack, then reloads
+  the segment registers and the task register. Hand-rolled per
+  [ADR 0009](docs/adr/0009-hand-rolled-cpu-tables.md).

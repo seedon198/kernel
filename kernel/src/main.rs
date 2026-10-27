@@ -25,6 +25,10 @@ fn kmain(boot_info: &BootInfo) -> ! {
     log::set_max_level(log::Level::Debug); // verbose during early bring-up
     info!("hello from the kernel");
     debug!("boot info received at {:p}", boot_info);
+
+    hal::gdt::init();
+    info!("gdt: loaded GDT, TSS, and segment registers");
+
     info!("kernel: halting (no scheduler yet)");
 
     hal::cpu::halt_loop();

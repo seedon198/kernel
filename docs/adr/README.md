@@ -17,6 +17,7 @@ accepted** — ADRs record the outcome of that discussion, they don't replace it
 | [0006](0006-security-model.md) | Security model: capabilities | Accepted |
 | [0007](0007-unsafe-policy.md) | `unsafe` policy: forbid outside `hal` | Accepted |
 | [0008](0008-native-tooling.md) | Native tooling via an embedded scripting runtime | Accepted |
+| [0009](0009-hand-rolled-cpu-tables.md) | Hand-roll the x86 CPU tables (no `x86_64` crate) | Accepted |
 
 New ADR: copy [0000-template.md](0000-template.md), take the next number, and
 open a PR labelled `adr`.
