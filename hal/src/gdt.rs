@@ -12,7 +12,8 @@
 //! and §8.7 (64-bit TSS).
 
 use core::arch::asm;
-use core::cell::UnsafeCell;
+
+use crate::cell::Racy;
 
 /// Kernel code selector (GDT index 1).
 pub const KERNEL_CODE: u16 = 0x08;
@@ -27,21 +28,6 @@ pub const TSS_SELECTOR: u16 = 0x30;
 
 /// Size of each dedicated stack (IST entries and `rsp0`).
 const STACK_SIZE: usize = 16 * 1024;
-
-/// A cell for one-time, boot-time initialization of a static that the CPU then
-/// reads. Access is sound because [`init`] runs exactly once, on the boot CPU,
-/// before interrupts or other cores exist.
-#[repr(transparent)]
-struct Racy<T>(UnsafeCell<T>);
-// SAFETY: the contained value is written only once in `init()` (single-threaded,
-// pre-interrupt boot) and thereafter only read by the CPU. No concurrent access
-// occurs, so sharing across the (currently single) execution context is sound.
-unsafe impl<T> Sync for Racy<T> {}
-impl<T> Racy<T> {
-    const fn new(value: T) -> Self {
-        Self(UnsafeCell::new(value))
-    }
-}
 
 /// 64-bit Task State Segment (Intel SDM Vol. 3A §8.7).
 #[repr(C, packed)]
@@ -148,8 +134,8 @@ pub fn init() {
     // SAFETY: single-threaded boot-time initialization (see `Racy`). We write
     // the TSS and GDT TSS-descriptor once, then load them into the CPU.
     unsafe {
-        let tss = TSS.0.get();
-        let stacks = STACKS.0.get();
+        let tss = TSS.get();
+        let stacks = STACKS.get();
 
         // Point the IST entries and rsp0 at the tops of their stacks. Packed
         // fields are written unaligned via raw pointers.
@@ -166,7 +152,7 @@ pub fn init() {
             .write_unaligned(core::mem::size_of::<Tss>() as u16);
 
         // Fill the TSS descriptor in the GDT.
-        let gdt = GDT.0.get();
+        let gdt = GDT.get();
         let (low, high) = tss_descriptor(tss as u64, core::mem::size_of::<Tss>() as u32 - 1);
         core::ptr::addr_of_mut!((*gdt).entries[6]).write(low);
         core::ptr::addr_of_mut!((*gdt).entries[7]).write(high);

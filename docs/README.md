@@ -10,6 +10,7 @@
 | [Security model](architecture/security-model.md) | Capabilities and least privilege |
 | [Threat model](architecture/threat-model.md) | What we harden against, and the ethical boundary |
 | [Boot process](architecture/boot.md) | From power-on to the root server |
+| [Interrupts & exceptions](architecture/interrupts.md) | IDT, trap frames, dispatch |
 | [Memory layout](architecture/memory-layout.md) | Address-space map and isolation |
 | **Decisions** | |
 | [ADR index](adr/README.md) | Architecture Decision Records |

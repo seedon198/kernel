@@ -67,3 +67,11 @@ All notable changes are documented here. The format follows
   dedicated IST stacks for #DF, NMI, and #MC plus an `rsp0` stack, then reloads
   the segment registers and the task register. Hand-rolled per
   [ADR 0009](docs/adr/0009-hand-rolled-cpu-tables.md).
+- IDT and exception handling (#10): `hal::idt` installs a 256-entry IDT whose
+  gates point at generated asm stubs that normalize the error code, build a
+  `TrapFrame`, and call a table-driven dispatcher. `register_handler(vector, fn)`
+  lets IRQ drivers hook in later (M3); CPU exceptions without a handler print a
+  diagnostic report (vector, error code, CR2 for #PF, register dump) and halt,
+  except #BP which resumes. Critical faults use the IST stacks from #9. A
+  shared `Racy` one-time-init cell was factored out of `gdt`. `kmain` triggers a
+  test `#BP` and resumes.
