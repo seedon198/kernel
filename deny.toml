@@ -30,7 +30,10 @@ confidence-threshold = 0.9
 [bans]
 # Keep the dependency tree small and auditable (minimal-TCB principle).
 multiple-versions = "warn"
+# Deny wildcard (versionless) dependencies from registries, but allow our own
+# intra-workspace `{ path = ... }` crates, which legitimately carry no version.
 wildcards = "deny"
+allow-wildcard-paths = true
 
 [sources]
 # Only crates.io; no unvetted git or alternative registries.
