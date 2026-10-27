@@ -75,3 +75,8 @@ All notable changes are documented here. The format follows
   except #BP which resumes. Critical faults use the IST stacks from #9. A
   shared `Racy` one-time-init cell was factored out of `gdt`. `kmain` triggers a
   test `#BP` and resumes.
+- Panic reporting with backtrace (#11): `hal::backtrace` walks the frame-pointer
+  chain (the kernel is now built with `force-frame-pointers=yes`). The panic
+  handler prints the message, location, and a backtrace; fatal exceptions add a
+  backtrace to their register dump. Addresses resolve with
+  `llvm-addr2line -e <kernel> <addr>` (verified against a real call chain).

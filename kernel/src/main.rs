@@ -47,11 +47,13 @@ fn kmain(boot_info: &BootInfo) -> ! {
 fn panic(info: &PanicInfo) -> ! {
     hal::cpu::disable_interrupts();
 
-    // Best-effort panic report over serial. A full register dump and backtrace
-    // arrive in M1 (#11).
+    // Report over a fresh serial port (not the logger), so a panic while the log
+    // lock is held still reports.
     let mut com1 = SerialPort::com1();
     com1.init();
-    let _ = writeln!(com1, "KERNEL PANIC: {info}");
+    let _ = writeln!(com1, "\n*** KERNEL PANIC ***");
+    let _ = writeln!(com1, "  {info}");
+    hal::backtrace::print(&mut com1);
 
     hal::cpu::halt_loop();
 }
