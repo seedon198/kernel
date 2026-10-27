@@ -5,3 +5,4 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Architecture-neutral boot information passed to the kernel."
+publish = false
