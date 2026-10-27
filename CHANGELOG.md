@@ -49,3 +49,7 @@ All notable changes are documented here. The format follows
   command. Defaults to UEFI with automatic OVMF discovery (`OVMF` env override);
   `--bios` and `--kvm` flags; extra args pass through after `--`. `debug` boots
   paused with a GDB stub on `:1234`.
+- CI boot smoke test (#7, completes #7): `scripts/boot-test.sh` boots the ISO
+  headless in QEMU and asserts the kernel prints its serial marker; a CI matrix
+  runs it for both BIOS and UEFI (BIOS boot is now covered on Linux runners).
+  Serial logs are uploaded as artifacts. **M0 complete.**
