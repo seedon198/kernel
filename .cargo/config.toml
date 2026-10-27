@@ -1,0 +1,5 @@
+# `cargo xtask <cmd>` runs the workspace task runner on the host.
+# We deliberately do NOT set a global `[build] target`, so host crates
+# (xtask) build for the host while the kernel is cross-compiled explicitly.
+[alias]
+xtask = "run --package xtask --"

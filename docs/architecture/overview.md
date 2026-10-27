@@ -45,13 +45,17 @@ make it, and it is written in safe Rust.
 
 ## Language and the unsafe boundary
 
-The whole system is **Rust, `no_std`**. The `kernel` crate and all servers
-compile with `#![forbid(unsafe_code)]`. Raw hardware access — reading MSRs,
-touching MMIO, writing page tables, inline assembly — lives **only** in the
-`hal` crate, where every `unsafe` block carries a `// SAFETY:` comment stating
-the invariant it relies on. This concentrates the auditable, dangerous code
-into one small, reviewed place. See [ADR 0001](../adr/0001-implementation-language.md)
-and [ADR 0007](../adr/0007-unsafe-policy.md).
+The whole system is **Rust, `no_std`**. Pure-logic crates (`libs/*`, and the
+user-space servers and tools) compile with `#![forbid(unsafe_code)]`. The
+`kernel` binary uses `#![deny(unsafe_code)]` with a single, CI-checked
+`#[allow(unsafe_code)]` on the `_start` entry shim — the ELF entry symbol needs
+the `#[unsafe(no_mangle)]` attribute (linker glue, not memory-unsafe code), and
+`forbid` cannot allow it anywhere. Raw hardware access — reading MSRs, touching
+MMIO, writing page tables, inline assembly — lives **only** in the `hal` crate,
+where every `unsafe` block carries a `// SAFETY:` comment stating the invariant
+it relies on. This concentrates the auditable, dangerous code into one small,
+reviewed place. See [ADR 0001](../adr/0001-implementation-language.md) and
+[ADR 0007](../adr/0007-unsafe-policy.md).
 
 ## Security model: capabilities
 

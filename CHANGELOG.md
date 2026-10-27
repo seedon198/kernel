@@ -19,3 +19,7 @@ All notable changes are documented here. The format follows
 - GitHub issue forms (bug, feature, security/tooling) and PR template.
 - Repo config: `rust-toolchain.toml`, `rustfmt.toml`, `.editorconfig`,
   `.gitignore`, `.gitattributes`.
+- Cargo workspace skeleton (#1): `kernel`, `hal`, `libs/boot-info`, `xtask`
+  crates; `cargo xtask build` cross-compiles the kernel to
+  `x86_64-unknown-none`. `hal` owns the only `unsafe` (a `hlt` halt loop); the
+  `kernel` binary links with `_start` → `kmain` and a halting panic handler.
