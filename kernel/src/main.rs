@@ -32,6 +32,29 @@ fn kmain(boot_info: &BootInfo) -> ! {
     hal::idt::init();
     info!("idt: installed interrupt descriptor table");
 
+    // CPU identity and required features.
+    let cpu = hal::cpuid::detect();
+    info!("cpu: {} \"{}\"", cpu.vendor(), cpu.brand());
+    let f = &cpu.features;
+    info!(
+        "cpu features: nx={} sse2={} smep={} smap={} x2apic={} xsave={} pcid={} 1gib={} rdrand={} invtsc={} syscall={}",
+        f.nx, f.sse2, f.smep, f.smap, f.x2apic, f.xsave, f.pcid, f.gib_pages, f.rdrand, f.invariant_tsc, f.syscall
+    );
+    assert!(f.nx, "CPU lacks NX (No-Execute); required for W^X");
+    assert!(f.sse2, "CPU lacks SSE2; required baseline for x86-64");
+
+    // Physical memory summary (full map consumed by the allocator in M2).
+    info!(
+        "memory: {} MiB usable / {} MiB total across {} regions",
+        boot_info.usable_bytes() / (1024 * 1024),
+        boot_info.total_bytes() / (1024 * 1024),
+        boot_info.regions().len()
+    );
+    info!(
+        "layout: hhdm={:#x}  kernel phys={:#x} virt={:#x}",
+        boot_info.hhdm_offset, boot_info.kernel_phys_base, boot_info.kernel_virt_base
+    );
+
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
     debug!("triggering a test breakpoint (#BP)...");
