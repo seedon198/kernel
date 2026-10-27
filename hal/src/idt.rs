@@ -185,6 +185,7 @@ fn default_exception(frame: &mut TrapFrame) {
         return;
     }
 
+    crate::backtrace::print_from(&mut com1, frame.rbp);
     let _ = writeln!(com1, "  unrecoverable exception — halting");
     crate::cpu::halt_loop();
 }

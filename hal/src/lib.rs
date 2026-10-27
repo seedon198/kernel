@@ -11,6 +11,7 @@
 //! `#![forbid(unsafe_code)]` and reach the hardware only through the safe
 //! abstractions exposed here.
 
+pub mod backtrace;
 mod cell;
 pub mod cpu;
 pub mod gdt;
