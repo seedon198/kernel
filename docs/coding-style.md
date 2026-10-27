@@ -12,9 +12,12 @@ Formatting is enforced by `rustfmt`; lints by `clippy`.
   additionally set:
   ```rust
   #![no_std]
-  #![forbid(unsafe_code)]        // except the `hal` crate — see ADR 0007
+  #![forbid(unsafe_code)]        // libs, servers, tools
   #![deny(missing_docs)]         // on public kernel/server APIs
   ```
+  `hal` omits the unsafe lint (it is the home of `unsafe`). The `kernel` binary
+  uses `#![deny(unsafe_code)]` with exactly one CI-checked
+  `#[allow(unsafe_code)]` on its `_start` shim — see ADR 0007.
 - **Naming:** standard Rust — `snake_case` items, `CamelCase` types,
   `SCREAMING_SNAKE_CASE` consts. No Hungarian notation.
 - **Errors:** return `Result<T, E>` with explicit error enums. No `unwrap()` /

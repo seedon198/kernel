@@ -1,0 +1,8 @@
+[package]
+name = "xtask"
+version = "0.0.1"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Workspace task runner: build, run, debug, iso (see ADR 0005)."
+publish = false

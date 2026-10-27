@@ -1,0 +1,23 @@
+# Workspace root. See docs/adr/0005-build-system.md.
+#
+# Host-buildable crates (xtask, and host tests of libs) are the default
+# members, so a bare `cargo build`/`cargo test` never tries to compile the
+# bare-metal crates (kernel, hal) for the host. The kernel is built for
+# `x86_64-unknown-none` explicitly via `cargo xtask build`.
+[workspace]
+resolver = "2"
+members = ["kernel", "hal", "libs/boot-info", "xtask"]
+default-members = ["xtask", "libs/boot-info"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/seedon198/kernel"
+
+# No unwinder exists on bare metal; abort on panic everywhere. (Harmless for
+# the host-side xtask, which simply aborts instead of unwinding.)
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
