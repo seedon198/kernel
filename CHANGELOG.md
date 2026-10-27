@@ -35,3 +35,8 @@ All notable changes are documented here. The format follows
   and calls `kmain`. `limine` 0.5 dependency (stable-compatible). All
   bootloader/linker `unsafe` is confined to the `boot` module, per the updated
   ADR 0007.
+- Bootable ISO (#3): `cargo xtask iso` fetches the pinned Limine binary
+  (`v11.x-binary`), assembles an `iso_root` with the kernel and `boot/limine.conf`,
+  and builds a hybrid BIOS + UEFI image at `build/kernel.iso` via `xorriso` +
+  `limine bios-install`. UEFI boot verified in QEMU (reaches long mode, clean
+  handoff to the kernel).
