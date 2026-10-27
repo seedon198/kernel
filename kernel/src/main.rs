@@ -11,6 +11,7 @@
 //! Kernel logic — [`kmain`] and below — contains no `unsafe`.
 
 mod boot;
+mod log;
 
 use boot_info::BootInfo;
 use core::fmt::Write;
@@ -19,13 +20,12 @@ use hal::serial::SerialPort;
 
 /// Architecture-neutral kernel entry, called by the boot code once the
 /// bootloader handoff is validated and a [`BootInfo`] has been assembled.
-fn kmain(_boot_info: &BootInfo) -> ! {
-    let mut com1 = SerialPort::com1();
-    com1.init();
-    // Structured logging (levels, sinks) arrives in M1 (#10/#12); for now a
-    // direct greeting proves the boot path end to end.
-    let _ = writeln!(com1, "hello from the kernel");
-    let _ = writeln!(com1, "kernel: halting (no scheduler yet)");
+fn kmain(boot_info: &BootInfo) -> ! {
+    log::init();
+    log::set_max_level(log::Level::Debug); // verbose during early bring-up
+    info!("hello from the kernel");
+    debug!("boot info received at {:p}", boot_info);
+    info!("kernel: halting (no scheduler yet)");
 
     hal::cpu::halt_loop();
 }

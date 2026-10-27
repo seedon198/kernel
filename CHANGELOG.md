@@ -53,3 +53,12 @@ All notable changes are documented here. The format follows
   headless in QEMU and asserts the kernel prints its serial marker; a CI matrix
   runs it for both BIOS and UEFI (BIOS boot is now covered on Linux runners).
   Serial logs are uploaded as artifacts. **M0 complete.**
+
+### M1: Kernel core
+
+- Structured kernel logging (#12): `hal::sync::SpinLock<T>` (minimal spinlock)
+  and a `kernel::log` module with severity levels, a runtime level filter, a
+  spinlock-guarded serial sink, and `error!`/`warn!`/`info!`/`debug!`/`trace!`
+  macros. `kmain` now logs `[INFO]`/`[DEBUG]` records; the panic handler
+  deliberately bypasses the logger (writes to its own serial port) to stay
+  deadlock-free.
