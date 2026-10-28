@@ -56,3 +56,50 @@ pub fn cnode_cap_space(phys: u64, slots: usize, hhdm: u64) -> CapSpace<'static, 
         CapSpace::new(core::slice::from_raw_parts_mut(ptr, slots))
     }
 }
+
+/// Load the [`Untyped`] control block stored at physical `phys` (the storage an
+/// Untyped capability points at), reached via the HHDM.
+///
+/// The caller must pass a `phys` that holds a valid `Untyped` (written by
+/// [`store_untyped`]); safe wrapper over internal `unsafe`.
+#[must_use]
+pub fn load_untyped(phys: u64, hhdm: u64) -> Untyped {
+    let ptr = (hhdm + phys) as *const Untyped;
+    // SAFETY: per the contract, `phys` holds a valid, aligned `Untyped` in our
+    // HHDM-mapped RAM; `Untyped` is `repr(C)` and `Copy`, so this read is sound.
+    unsafe { ptr.read() }
+}
+
+/// Store an [`Untyped`] control block at physical `phys`, via the HHDM.
+///
+/// The caller must own the storage at `phys` (a control block sized for an
+/// `Untyped`); safe wrapper over internal `unsafe`.
+pub fn store_untyped(phys: u64, hhdm: u64, untyped: Untyped) {
+    let ptr = (hhdm + phys) as *mut Untyped;
+    // SAFETY: as in `load_untyped`; the caller owns aligned storage for one
+    // `repr(C)` `Untyped` at `phys`.
+    unsafe { ptr.write(untyped) }
+}
+
+/// OR `bits` into the signal word of the Notification whose state lives at
+/// physical `phys` (the first `u64` of its `NotificationState`), via the HHDM.
+pub fn notification_signal(phys: u64, bits: u64, hhdm: u64) {
+    let ptr = (hhdm + phys) as *mut u64;
+    // SAFETY: `phys` is a Notification's retyped, zeroed state (its first field
+    // is the `u64` signal word) in our HHDM-mapped RAM; read-modify-write of
+    // that word stays within the object.
+    unsafe {
+        let cur = ptr.read_volatile();
+        ptr.write_volatile(cur | bits);
+    }
+}
+
+/// Read the pending signal word of the Notification whose state lives at
+/// physical `phys`, via the HHDM.
+#[must_use]
+pub fn notification_pending(phys: u64, hhdm: u64) -> u64 {
+    let ptr = (hhdm + phys) as *const u64;
+    // SAFETY: `phys` is a Notification's retyped state in HHDM-mapped RAM; its
+    // first field is the `u64` signal word, valid to read.
+    unsafe { ptr.read_volatile() }
+}
