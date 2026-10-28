@@ -39,6 +39,16 @@ pub enum MapError {
     Misaligned,
 }
 
+/// Why a [`AddressSpace::protect`] call failed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProtectError {
+    /// No 4 KiB leaf mapping exists for the address.
+    NotMapped,
+    /// The address is mapped by a large page, which this 4 KiB-granular call
+    /// cannot repermission.
+    HugePage,
+}
+
 /// A virtual address space: a root PML4 and the HHDM offset used to reach its
 /// tables.
 pub struct AddressSpace {
@@ -214,6 +224,112 @@ impl AddressSpace {
         wrote_ok && via_hhdm == SENTINEL && translated
     }
 
+    /// Change the flags of an existing 4 KiB mapping for `virt`, keeping its
+    /// physical target. `PRESENT` is added automatically.
+    ///
+    /// # Errors
+    /// [`ProtectError::NotMapped`] if `virt` has no leaf mapping, or
+    /// [`ProtectError::HugePage`] if it is mapped by a large page.
+    pub fn protect(&mut self, virt: u64, flags: PageTableFlags) -> Result<(), ProtectError> {
+        let idx = table_indices(virt);
+        let mut table = self.root.addr();
+        for &i in &idx[..3] {
+            let e = self.entry(table, i);
+            if !e.is_present() {
+                return Err(ProtectError::NotMapped);
+            }
+            if e.is_huge() {
+                return Err(ProtectError::HugePage);
+            }
+            table = e.addr();
+        }
+        let leaf = self.entry_ptr(table, idx[3]);
+        // SAFETY: in-bounds HHDM entry of a present table.
+        let e = PageTableEntry::from_bits(unsafe { leaf.read_volatile() });
+        if !e.is_present() {
+            return Err(ProtectError::NotMapped);
+        }
+        let entry = PageTableEntry::new(e.addr(), flags | PageTableFlags::PRESENT);
+        // SAFETY: as above; rewriting the leaf's flags, keeping its address.
+        unsafe { leaf.write_volatile(entry.bits()) }
+        invlpg(virt);
+        Ok(())
+    }
+
+    /// The physical target and effective leaf flags for `virt` (resolving huge
+    /// pages), or `None` if unmapped. Used to verify permissions.
+    #[must_use]
+    pub fn query(&self, virt: u64) -> Option<(u64, PageTableFlags)> {
+        let idx = table_indices(virt);
+        let mut table = self.root.addr();
+        let pml4e = self.entry(table, idx[0]);
+        if !pml4e.is_present() {
+            return None;
+        }
+        table = pml4e.addr();
+        let pdpte = self.entry(table, idx[1]);
+        if !pdpte.is_present() {
+            return None;
+        }
+        if pdpte.is_huge() {
+            return Some((pdpte.addr() | (virt & ((1 << 30) - 1)), pdpte.flags()));
+        }
+        table = pdpte.addr();
+        let pde = self.entry(table, idx[2]);
+        if !pde.is_present() {
+            return None;
+        }
+        if pde.is_huge() {
+            return Some((pde.addr() | (virt & ((1 << 21) - 1)), pde.flags()));
+        }
+        table = pde.addr();
+        let pte = self.entry(table, idx[3]);
+        if !pte.is_present() {
+            return None;
+        }
+        Some((pte.addr() | page_table::page_offset(virt), pte.flags()))
+    }
+
+    /// The flags of the top-level (PML4) entry covering `virt`, or `None` if it
+    /// is not present. NX is cumulative across levels, so NX set here makes
+    /// everything beneath non-executable; this reads it back for verification.
+    #[must_use]
+    pub fn top_level_flags(&self, virt: u64) -> Option<PageTableFlags> {
+        let e = self.entry(self.root.addr(), table_indices(virt)[0]);
+        if e.is_present() {
+            Some(e.flags())
+        } else {
+            None
+        }
+    }
+
+    /// Mark the virtual range `[start, end)` non-executable at the PML4 level,
+    /// so every page under those top-level entries is NX. Intended for the
+    /// HHDM. Call [`reload`](Self::reload) afterwards to flush the TLB.
+    pub fn make_range_nx_toplevel(&mut self, start: u64, end: u64) {
+        if end <= start {
+            return;
+        }
+        let first = table_indices(start)[0];
+        let last = table_indices(end - 1)[0];
+        for i in first..=last {
+            let ptr = self.entry_ptr(self.root.addr(), i);
+            // SAFETY: in-bounds PML4 entry reached via the HHDM.
+            let e = PageTableEntry::from_bits(unsafe { ptr.read_volatile() });
+            if e.is_present() {
+                let ne = PageTableEntry::new(e.addr(), e.flags() | PageTableFlags::NO_EXECUTE);
+                // SAFETY: as above; OR-ing NX into the top-level entry.
+                unsafe { ptr.write_volatile(ne.bits()) }
+            }
+        }
+    }
+
+    /// Reload `CR3` with our own root, flushing all non-global TLB entries.
+    /// Needed after changing higher-level entries (e.g. PML4 flags).
+    pub fn reload(&self) {
+        self.switch();
+    }
+
     // --- internal walk helpers (all HHDM-based) ---
 
     /// Pointer to entry `i` of the table at physical `table_phys`, via the HHDM.
@@ -279,6 +395,47 @@ fn read_cr3() -> u64 {
 unsafe fn write_cr3(pml4_phys: u64) {
     // SAFETY: guaranteed by the caller's contract above.
     unsafe { asm!("mov cr3, {}", in(reg) pml4_phys, options(nostack, preserves_flags)) }
+}
+
+/// The `IA32_EFER` model-specific register.
+const IA32_EFER: u32 = 0xC000_0080;
+/// EFER's No-Execute-Enable bit; must be set for NX page flags to be honored.
+const EFER_NXE: u64 = 1 << 11;
+
+/// Enable the No-Execute (NX) feature in `EFER`, so the NX bit on page-table
+/// entries is enforced. Idempotent; a no-op if already enabled.
+pub fn enable_nx() {
+    let efer = rdmsr(IA32_EFER);
+    if efer & EFER_NXE == 0 {
+        // SAFETY: setting EFER.NXE only makes the CPU honor the NX page-flag;
+        // it changes no existing mapping other than to enforce NX where set.
+        unsafe { wrmsr(IA32_EFER, efer | EFER_NXE) }
+    }
+}
+
+/// Read a model-specific register.
+fn rdmsr(msr: u32) -> u64 {
+    let (hi, lo): (u32, u32);
+    // SAFETY: a plain MSR read with no memory effects; IA32_EFER exists on all
+    // x86-64 CPUs.
+    unsafe {
+        asm!("rdmsr", in("ecx") msr, out("edx") hi, out("eax") lo,
+             options(nomem, nostack, preserves_flags))
+    }
+    ((hi as u64) << 32) | (lo as u64)
+}
+
+/// Write a model-specific register.
+///
+/// # Safety
+/// `msr` must be a writable MSR and `value` a valid value for it.
+unsafe fn wrmsr(msr: u32, value: u64) {
+    let (hi, lo) = ((value >> 32) as u32, value as u32);
+    // SAFETY: guaranteed by the caller's contract above.
+    unsafe {
+        asm!("wrmsr", in("ecx") msr, in("edx") hi, in("eax") lo,
+             options(nostack, preserves_flags))
+    }
 }
 
 /// Invalidate the TLB entry for one virtual address.
