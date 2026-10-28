@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-28
+
+M3: the capability model — the microkernel's security core. Unforgeable
+capabilities with attenuation-only rights, a per-task capability space backed
+by CNodes, Untyped memory and retype (the kernel never heap-allocates objects),
+the core object kinds, and a rights-checked invocation API. Also fixes two
+issues found in a code review. Blocking IPC and the ring-3 `syscall` entry need
+threads and are part of M4.
+
 ### Fixed
 
 - Kernel heap could collide with the KASLR-slid kernel image (#61): the heap
@@ -251,6 +260,7 @@ that reaches the kernel and prints over serial in QEMU.
   runs it for both BIOS and UEFI (BIOS boot is now covered on Linux runners).
   Serial logs are uploaded as artifacts. **M0 complete.**
 
+[0.3.0]: https://github.com/seedon198/kernel/releases/tag/v0.3.0
 [0.2.0]: https://github.com/seedon198/kernel/releases/tag/v0.2.0
 [0.1.0]: https://github.com/seedon198/kernel/releases/tag/v0.1.0
 [0.0.1]: https://github.com/seedon198/kernel/releases/tag/v0.0.1
