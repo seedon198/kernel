@@ -15,15 +15,20 @@ systems or data. See [SECURITY.md](../../SECURITY.md).
 
 ## Part 1 — Threats *to* the OS (what we harden against)
 
+The memory-level mitigations below (W^X, NX, SMEP/SMAP, KASLR, guard pages, zeroed
+frames, per-address-space isolation) are **implemented as of milestone M2** — see
+[memory-management.md](memory-management.md). A ✓ marks mitigations already in the
+kernel; others are design commitments realized in later milestones.
+
 | Asset | Threat | Mitigation |
 |---|---|---|
 | Kernel integrity (TCB) | Exploit in a driver/parser escalating to ring 0 | Microkernel: drivers/parsers are isolated user servers (ADR 0004); kernel is safe Rust (ADR 0001/0007) |
-| Memory safety | UAF, buffer overflow, type confusion | Rust `forbid(unsafe)` outside `hal`; the few `unsafe` blocks audited |
-| Task isolation | One task reading/writing another's memory | Per-address-space paging; capabilities (no ambient authority) |
-| Code injection | Overwriting code, running injected code | W^X, NX, SMEP/SMAP; `Frame` caps separate map/exec rights |
-| Exploit reliability | Predictable kernel addresses | KASLR; guard pages |
+| Memory safety | UAF, buffer overflow, type confusion | Rust `forbid(unsafe)` outside `hal`; the few `unsafe` blocks audited ✓ |
+| Task isolation | One task reading/writing another's memory | Per-address-space paging ✓ (own page tables, M2); capabilities (no ambient authority) |
+| Code injection | Overwriting code, running injected code | W^X + NX enforced and verified; HHDM non-executable; SMEP/SMAP enabled ✓ (M2). `Frame` caps separate map/exec rights (later) |
+| Exploit reliability | Predictable kernel addresses | Kernel KASLR ✓; stack guard pages ✓; zeroed-on-alloc frames ✓ (M2) |
 | Hostile input | Malicious packets, filesystems, images | Parsed only in sandboxed servers; fuzzed in CI |
-| Supply chain | Compromised dependency | Minimal deps; `cargo deny` / `cargo audit`; pinned toolchain; vendored Limine |
+| Supply chain | Compromised dependency | Minimal deps; `cargo deny` / `cargo audit`; pinned toolchain; vendored Limine ✓ |
 
 ### Trust boundaries
 
