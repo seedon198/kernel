@@ -8,6 +8,13 @@ All notable changes are documented here. The format follows
 
 ### M3: Capabilities & IPC
 
+- Per-task capability space (#54): a `CapSpace` in the `capability` crate — a
+  flat table of capability slots (`CapId` = index, O(1) lookup) over
+  caller-provided storage, with `insert`/`get`/`delete`/`move`/`copy`/`mint`.
+  A slot fills only when empty; `copy`/`mint` may only **attenuate** the source
+  (never widen). Pure and host-tested; the kernel composes a growable two-level
+  space from these tables, backed by Untyped memory (#55).
+
 - Capability core (#53): a new pure `capability` crate (`#![forbid(unsafe_code)]`,
   host-tested) with the capability algebra — `Rights` bit flags with
   intersection/attenuation, and a `Capability<Obj>` (object handle + rights +
