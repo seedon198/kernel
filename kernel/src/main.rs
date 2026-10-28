@@ -141,6 +141,10 @@ fn kmain(boot_info: &BootInfo) -> ! {
     // from an Untyped region with watermark accounting.
     demo_untyped(boot_info);
 
+    // Kernel objects & CNode-backed capability space (M3, #56): retype objects
+    // and install/attenuate real capabilities.
+    demo_capabilities(boot_info);
+
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
     debug!("triggering a test breakpoint (#BP)...");
@@ -449,6 +453,79 @@ fn demo_untyped(boot_info: &BootInfo) {
     assert!(rejected.is_none(), "over-budget retype should fail");
     assert_eq!(ut.free(), before, "failed retype must not consume space");
     info!("untyped: over-budget retype correctly rejected; accounting intact");
+
+    hal::frame::free_frame(frame);
+}
+
+/// Demonstrate the capability path end to end (#56): from one Untyped region,
+/// retype a CNode (which backs a capability space), an Endpoint, and a
+/// Notification; install full-rights capabilities to the objects; then derive
+/// an attenuated (SEND-only) copy and verify the rights.
+fn demo_capabilities(boot_info: &BootInfo) {
+    use capability::Untyped;
+    use capability::{cnode_bytes, slot_align, CapId, Capability, ObjectKind, ObjectRef, Rights};
+
+    const CNODE_SLOTS: usize = 16;
+
+    let Some(frame) = hal::frame::alloc_frame() else {
+        warn!("caps: no frame for the demo");
+        return;
+    };
+    let hhdm = boot_info.hhdm_offset;
+    let mut ut = Untyped::new(frame.addr(), hal::paging::PAGE);
+
+    // Retype a CNode and form the capability space over its storage.
+    let Some(cnode_phys) = hal::object::retype(
+        &mut ut,
+        cnode_bytes(CNODE_SLOTS) as u64,
+        slot_align() as u64,
+        1,
+        hhdm,
+    ) else {
+        warn!("caps: CNode retype failed");
+        hal::frame::free_frame(frame);
+        return;
+    };
+    // `cnode_phys` is a CNode just retyped for CNODE_SLOTS slots (our exclusive
+    // HHDM-mapped storage), and we form exactly one CapSpace over it.
+    let mut cspace = hal::object::cnode_cap_space(cnode_phys, CNODE_SLOTS, hhdm);
+
+    // Retype an Endpoint and a Notification.
+    let (esz, eal) = ObjectKind::Endpoint.fixed_layout().unwrap();
+    let (nsz, nal) = ObjectKind::Notification.fixed_layout().unwrap();
+    let (Some(ep_phys), Some(nt_phys)) = (
+        hal::object::retype(&mut ut, esz, eal, 1, hhdm),
+        hal::object::retype(&mut ut, nsz, nal, 1, hhdm),
+    ) else {
+        warn!("caps: object retype failed");
+        hal::frame::free_frame(frame);
+        return;
+    };
+
+    // Install full-rights capabilities to the objects.
+    let ep = Capability::new(ObjectRef::new(ObjectKind::Endpoint, ep_phys), Rights::ALL);
+    let nt = Capability::new(
+        ObjectRef::new(ObjectKind::Notification, nt_phys),
+        Rights::ALL,
+    );
+    let ep_id = cspace.insert(ep).unwrap();
+    let _nt_id = cspace.insert(nt).unwrap();
+
+    // Derive an attenuated SEND-only copy of the endpoint cap into another slot.
+    cspace.copy(ep_id, CapId(10), Rights::SEND).unwrap();
+
+    let full = cspace.get(ep_id).unwrap();
+    let weak = cspace.get(CapId(10)).unwrap();
+    let ok = full.allows(Rights::SEND | Rights::RECV)
+        && weak.allows(Rights::SEND)
+        && !weak.allows(Rights::RECV)
+        && weak.object == full.object;
+    assert!(ok, "attenuated capability derivation is wrong");
+
+    info!(
+        "caps: CNode cap space ({} slots) holds endpoint+notification; SEND-only copy attenuated & verified",
+        cspace.capacity()
+    );
 
     hal::frame::free_frame(frame);
 }

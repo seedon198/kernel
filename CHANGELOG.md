@@ -20,6 +20,16 @@ All notable changes are documented here. The format follows
 
 ### M3: Capabilities & IPC
 
+- Core kernel object types & CNode-backed capability space (#56): `capability::
+  object` gains per-kind storage layouts (`ObjectKind::fixed_layout`; `Frame`/
+  `AddressSpace` = a page, `Endpoint`/`Notification` zeroed state structs) and
+  CNode sizing (`cnode_bytes`/`slot_align`). `hal::object::cnode_cap_space`
+  forms a `CapSpace` over a CNode's retyped storage (HHDM-backed, slots
+  initialized to empty). `kmain` now runs the full path end to end: retype a
+  CNode, an Endpoint, and a Notification from one Untyped, install full-rights
+  capabilities, and derive an attenuated SEND-only copy — verified. Objects, the
+  cap space, and the caps all live in Untyped memory.
+
 - Untyped memory & retype (#55): a new `capability::object` module (pure,
   host-tested) adds `ObjectKind`, `ObjectRef { kind, phys }` (the kernel's
   object handle), and `Untyped` — a physical region with a bump watermark whose
