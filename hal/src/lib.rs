@@ -13,6 +13,7 @@
 
 pub mod backtrace;
 mod cell;
+pub mod context;
 pub mod cpu;
 pub mod cpuid;
 pub mod fault;
