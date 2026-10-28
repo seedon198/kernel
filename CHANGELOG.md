@@ -8,6 +8,15 @@ All notable changes are documented here. The format follows
 
 ### M2: Memory & isolation
 
+- W^X + NX enforcement (#40): the kernel now sets and verifies its own memory
+  permissions, per [ADR 0012](docs/adr/0012-wx-nx-enforcement.md). `EFER.NXE` is
+  enabled; the kernel image is repermissioned per section from linker symbols
+  (`.text` R-X, `.rodata` R+NX, `.data`/`.bss` RW+NX) via a new
+  `AddressSpace::protect`; and the HHDM (the direct physical map) is made
+  non-executable by setting NX on its top-level entries — closing the
+  "execute from the physmap alias" primitive. `kmain` applies this and then
+  reads the resulting PTE/PML4 flags back to assert the invariants (no W+X,
+  `.text` executable, data and HHDM NX). KASLR is tracked separately (#47).
 - Page tables & address spaces (#39): the kernel now runs on page tables it
   owns, per [ADR 0011](docs/adr/0011-page-tables.md). A new pure `page-table`
   crate (`#![forbid(unsafe_code)]`, host-unit-tested) encodes entries, flags,

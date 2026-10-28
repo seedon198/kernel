@@ -110,6 +110,46 @@ pub extern "C" fn _start() -> ! {
     crate::kmain(&boot_info)
 }
 
+// Section boundary symbols defined by `kernel/arch/x86_64/linker.ld`. Each is
+// page-aligned; they carry no data, only addresses.
+extern "C" {
+    static __text_start: u8;
+    static __text_end: u8;
+    static __rodata_start: u8;
+    static __rodata_end: u8;
+    static __data_start: u8;
+    static __data_end: u8;
+}
+
+/// The virtual-address ranges (`start..end`, page-aligned) of the kernel's
+/// loadable sections, read from linker symbols. Used by the memory manager to
+/// apply W^X permissions (#40).
+#[derive(Clone, Copy)]
+pub struct KernelSections {
+    /// `.text` — executable code (maps R-X).
+    pub text: (u64, u64),
+    /// `.rodata` — read-only data (maps R, NX).
+    pub rodata: (u64, u64),
+    /// `.data` + `.bss` — writable data (maps RW, NX).
+    pub data: (u64, u64),
+}
+
+/// Read the kernel's section boundaries from the linker-defined symbols.
+#[must_use]
+pub fn kernel_sections() -> KernelSections {
+    use core::ptr::addr_of;
+    // These are linker-defined boundary symbols; we only take their addresses
+    // (never dereference them), which is safe even for `extern` statics.
+    KernelSections {
+        text: (addr_of!(__text_start) as u64, addr_of!(__text_end) as u64),
+        rodata: (
+            addr_of!(__rodata_start) as u64,
+            addr_of!(__rodata_end) as u64,
+        ),
+        data: (addr_of!(__data_start) as u64, addr_of!(__data_end) as u64),
+    }
+}
+
 /// Translate a Limine memory-map entry type into our architecture-neutral kind.
 fn region_kind(entry_type: EntryType) -> RegionKind {
     match entry_type {

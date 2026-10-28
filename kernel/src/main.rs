@@ -86,6 +86,10 @@ fn kmain(boot_info: &BootInfo) -> ! {
     // the map/translate/unmap path.
     init_paging(boot_info);
 
+    // W^X + NX hardening (M2, #40): enforce per-section kernel permissions and
+    // make the direct physical map non-executable.
+    harden_memory(boot_info);
+
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
     debug!("triggering a test breakpoint (#BP)...");
@@ -175,6 +179,67 @@ fn init_paging(boot_info: &BootInfo) {
     } else {
         warn!("paging: self-test FAILED");
     }
+}
+
+/// Enforce W^X + NX: enable NX, set per-section kernel-image permissions
+/// (`.text` R-X, `.rodata` R+NX, `.data`/`.bss` RW+NX), and make the HHDM
+/// non-executable. Then verify the key invariants.
+fn harden_memory(boot_info: &BootInfo) {
+    use hal::paging::{Flags, ProtectError};
+
+    hal::paging::enable_nx();
+
+    let s = boot::kernel_sections();
+    let mut guard = KERNEL_SPACE.lock();
+    let Some(aspace) = guard.as_mut() else {
+        warn!("harden: no kernel address space; skipping");
+        return;
+    };
+
+    // (range, flags) per section. `protect` adds PRESENT; .text gets neither
+    // WRITABLE nor NX (R-X), the rest get NX, and .data also WRITABLE.
+    let sections = [
+        (s.text, Flags::empty()),
+        (s.rodata, Flags::NO_EXECUTE),
+        (s.data, Flags::WRITABLE | Flags::NO_EXECUTE),
+    ];
+    let mut pages = 0usize;
+    let mut huge = 0usize;
+    for ((start, end), flags) in sections {
+        let mut v = start;
+        while v < end {
+            match aspace.protect(v, flags) {
+                Ok(()) => pages += 1,
+                Err(ProtectError::HugePage) => huge += 1,
+                Err(ProtectError::NotMapped) => {}
+            }
+            v += hal::paging::PAGE;
+        }
+    }
+
+    // Make the direct physical map (HHDM) non-executable, then flush the TLB.
+    let hhdm = boot_info.hhdm_offset;
+    aspace.make_range_nx_toplevel(hhdm, hhdm + boot_info.highest_address());
+    aspace.reload();
+
+    info!(
+        "harden: NX on; protected {} kernel pages ({} huge skipped)",
+        pages, huge
+    );
+
+    // Verify the invariants we most care about.
+    let mut ok = true;
+    if let Some((_, f)) = aspace.query(s.text.0) {
+        ok &= !f.contains(Flags::WRITABLE) && !f.contains(Flags::NO_EXECUTE);
+    }
+    if let Some((_, f)) = aspace.query(s.data.0) {
+        ok &= f.contains(Flags::NO_EXECUTE);
+    }
+    if let Some(f) = aspace.top_level_flags(hhdm) {
+        ok &= f.contains(Flags::NO_EXECUTE);
+    }
+    assert!(ok, "harden: W^X/NX invariants not satisfied");
+    info!("harden: verified — .text R-X, .rodata/.data NX, HHDM NX, no W+X");
 }
 
 #[panic_handler]
