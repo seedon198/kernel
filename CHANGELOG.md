@@ -6,6 +6,18 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### M4: Scheduling & userspace
+
+- Threads, context switch, and a cooperative round-robin scheduler (#78), per
+  [ADR 0017](docs/adr/0017-threads-and-scheduling.md). A new pure `sched` crate
+  (`#![forbid(unsafe_code)]`, host-tested) is the round-robin policy — a ready
+  queue of `ThreadId`s with admit/rotate/remove. `hal::context` saves/restores a
+  thread's callee-saved registers and stack pointer (`Context` + `switch`), and
+  `Context::init` crafts a fresh thread's stack to begin at an entry point.
+  `kmain` runs two kernel threads cooperatively round-robining with the boot
+  thread, verified in QEMU (both ran via the context switch). Preemption, ring
+  3, and IPC build on this.
+
 ## [0.3.0] - 2026-10-28
 
 M3: the capability model — the microkernel's security core. Unforgeable

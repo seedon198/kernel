@@ -11,6 +11,7 @@ publish = false
 hal = { path = "../hal" }
 boot-info = { path = "../libs/boot-info" }
 capability = { path = "../libs/capability" }
+sched = { path = "../libs/sched" }
 # Bootloader protocol bindings. Wrapped behind our own BootInfo (ADR 0003);
 # used only in the kernel's `boot` module. Pinned to 0.5.x: 0.6+ requires a
 # nightly-only feature (ptr_metadata), and we stay on stable (ADR 0002).

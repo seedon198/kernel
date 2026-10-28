@@ -37,6 +37,7 @@ dependencies = [
  "capability",
  "hal",
  "limine",
+ "sched",
 ]
 
 [[package]]
@@ -50,6 +51,10 @@ dependencies = [
 
 [[package]]
 name = "page-table"
+version = "0.0.1"
+
+[[package]]
+name = "sched"
 version = "0.0.1"
 
 [[package]]

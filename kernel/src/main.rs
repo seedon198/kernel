@@ -33,6 +33,19 @@ static KERNEL_SPACE: SpinLock<Option<AddressSpace>> = SpinLock::new(None);
 #[global_allocator]
 static HEAP: hal::heap::KernelHeap = hal::heap::KernelHeap::new();
 
+/// Round-robin scheduler (#78). Thread 0 is the boot thread; 1 and 2 are the
+/// demo worker threads.
+static SCHED: SpinLock<sched::Scheduler> = SpinLock::new(sched::Scheduler::new());
+/// Saved contexts, indexed by [`sched::ThreadId`]: boot, worker A, worker B.
+static CONTEXTS: [hal::context::Context; 3] = [
+    hal::context::Context::new(),
+    hal::context::Context::new(),
+    hal::context::Context::new(),
+];
+/// Times each demo worker has been scheduled (proof the switch happened).
+static A_TICKS: AtomicU64 = AtomicU64::new(0);
+static B_TICKS: AtomicU64 = AtomicU64::new(0);
+
 /// Virtual base of the kernel heap window. Deliberately placed *below* the
 /// KASLR window (the top 2 GiB, from [`HEAP_LIMIT`]): Limine always loads the
 /// kernel image at or above `0xffffffff80000000`, so a heap region that lives
@@ -149,13 +162,17 @@ fn kmain(boot_info: &BootInfo) -> ! {
     // capabilities — the surface M4's syscall entry will call.
     demo_invoke(boot_info);
 
+    // Threads & cooperative round-robin scheduling (M4, #78): two kernel
+    // threads switching via a hal context switch and the pure scheduler.
+    demo_threads(boot_info);
+
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
     debug!("triggering a test breakpoint (#BP)...");
     hal::idt::breakpoint();
     info!("resumed after breakpoint");
 
-    info!("kernel: halting (no scheduler yet)");
+    info!("kernel: halting (no preemption or user tasks yet)");
 
     hal::cpu::halt_loop();
 }
@@ -713,6 +730,77 @@ fn demo_invoke(boot_info: &BootInfo) {
 
     hal::frame::free_frame(ctrl);
     hal::frame::free_frame(region);
+}
+
+/// Cooperatively yield to the next ready thread: pick it with the round-robin
+/// scheduler (lock released before switching), then switch contexts.
+fn yield_now() {
+    let (cur, next) = {
+        let mut s = SCHED.lock();
+        let Some(cur) = s.current() else {
+            return;
+        };
+        let Some(next) = s.rotate() else {
+            return;
+        };
+        (cur, next)
+    };
+    if cur != next {
+        hal::context::switch(&CONTEXTS[cur.0], &CONTEXTS[next.0]);
+    }
+}
+
+/// Demo worker A: bump its counter and yield, forever (abandoned when the
+/// kernel halts).
+extern "C" fn worker_a() -> ! {
+    loop {
+        A_TICKS.fetch_add(1, Ordering::Relaxed);
+        yield_now();
+    }
+}
+
+/// Demo worker B.
+extern "C" fn worker_b() -> ! {
+    loop {
+        B_TICKS.fetch_add(1, Ordering::Relaxed);
+        yield_now();
+    }
+}
+
+/// Bring up two kernel threads and round-robin among them and the boot thread
+/// cooperatively, proving the context switch and scheduler work (#78).
+fn demo_threads(boot_info: &BootInfo) {
+    use sched::ThreadId;
+
+    let hhdm = boot_info.hhdm_offset;
+    let (Some(stack_a), Some(stack_b)) = (hal::frame::alloc_frame(), hal::frame::alloc_frame())
+    else {
+        warn!("sched: no frames for thread stacks");
+        return;
+    };
+    // One zeroed frame each as a (small) kernel-thread stack, reached via the
+    // HHDM. Kept for the rest of boot (the threads are abandoned at halt).
+    CONTEXTS[1].init(hhdm + stack_a.addr() + hal::paging::PAGE, worker_a);
+    CONTEXTS[2].init(hhdm + stack_b.addr() + hal::paging::PAGE, worker_b);
+
+    {
+        let mut s = SCHED.lock();
+        s.admit(ThreadId(0)); // the boot thread
+        s.admit(ThreadId(1)); // worker A
+        s.admit(ThreadId(2)); // worker B
+    }
+
+    info!("sched: cooperative round-robin across the boot thread + 2 kernel threads");
+    for _ in 0..3 {
+        yield_now();
+    }
+
+    let (a, b) = (
+        A_TICKS.load(Ordering::Relaxed),
+        B_TICKS.load(Ordering::Relaxed),
+    );
+    assert!(a > 0 && b > 0, "worker threads never ran");
+    info!("sched: both threads ran via context switch (A={a}, B={b})");
 }
 
 #[panic_handler]
