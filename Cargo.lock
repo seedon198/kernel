@@ -21,6 +21,7 @@ name = "hal"
 version = "0.0.1"
 dependencies = [
  "frame-alloc",
+ "page-table",
 ]
 
 [[package]]
@@ -40,6 +41,10 @@ checksum = "af6d2ee42712e7bd2c787365cd1dab06ef59a61becbf87bec7b32b970bd2594b"
 dependencies = [
  "bitflags",
 ]
+
+[[package]]
+name = "page-table"
+version = "0.0.1"
 
 [[package]]
 name = "xtask"

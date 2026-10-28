@@ -8,6 +8,18 @@ All notable changes are documented here. The format follows
 
 ### M2: Memory & isolation
 
+- Page tables & address spaces (#39): the kernel now runs on page tables it
+  owns, per [ADR 0011](docs/adr/0011-page-tables.md). A new pure `page-table`
+  crate (`#![forbid(unsafe_code)]`, host-unit-tested) encodes entries, flags,
+  and the virtual-address split; `hal::paging` adds an `AddressSpace` with
+  `map`/`unmap`/`translate`, walking tables through the HHDM and allocating
+  intermediate tables from the frame allocator. `AddressSpace::new_kernel`
+  allocates a fresh PML4, inherits the bootloader's higher-half mappings
+  (kernel image + HHDM), and `switch`es `CR3` to it; the lower half is managed
+  at 4 KiB granularity (`translate` also resolves inherited 2 MiB/1 GiB huge
+  pages). `kmain` switches to the kernel address space and runs a
+  map/write/translate/unmap self-test. Strict per-section kernel permissions
+  (W^X/NX) and KASLR come in #40.
 - Physical frame allocator (#38): a bitmap allocator (one bit per 4 KiB frame)
   built from the memory map, per [ADR 0010](docs/adr/0010-bitmap-frame-allocator.md).
   The allocation *policy* lives in the new `frame-alloc` crate —

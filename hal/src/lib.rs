@@ -21,5 +21,6 @@ pub mod framebuffer;
 pub mod gdt;
 pub mod idt;
 pub mod io;
+pub mod paging;
 pub mod serial;
 pub mod sync;
