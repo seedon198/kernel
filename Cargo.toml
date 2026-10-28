@@ -6,8 +6,8 @@
 # `x86_64-unknown-none` explicitly via `cargo xtask build`.
 [workspace]
 resolver = "2"
-members = ["kernel", "hal", "libs/boot-info", "libs/frame-alloc", "libs/page-table", "xtask"]
-default-members = ["xtask", "libs/boot-info", "libs/frame-alloc", "libs/page-table"]
+members = ["kernel", "hal", "libs/boot-info", "libs/frame-alloc", "libs/page-table", "libs/capability", "xtask"]
+default-members = ["xtask", "libs/boot-info", "libs/frame-alloc", "libs/page-table", "libs/capability"]
 
 [workspace.package]
 edition = "2021"
