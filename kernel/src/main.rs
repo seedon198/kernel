@@ -16,7 +16,13 @@ mod log;
 use boot_info::BootInfo;
 use core::fmt::Write;
 use core::panic::PanicInfo;
+use hal::paging::AddressSpace;
 use hal::serial::SerialPort;
+use hal::sync::SpinLock;
+
+/// The kernel's address space, established in [`init_paging`]. Held for later
+/// milestones (the heap and guard pages in #41, user address spaces in M4).
+static KERNEL_SPACE: SpinLock<Option<AddressSpace>> = SpinLock::new(None);
 
 /// Architecture-neutral kernel entry, called by the boot code once the
 /// bootloader handoff is validated and a [`BootInfo`] has been assembled.
@@ -75,6 +81,10 @@ fn kmain(boot_info: &BootInfo) -> ! {
     // allocator's region view (only RegionKind::Usable is handed out), then
     // bring it up and exercise it.
     init_frames(boot_info);
+
+    // Virtual memory (M2, #39): move onto page tables we own, then self-test
+    // the map/translate/unmap path.
+    init_paging(boot_info);
 
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
@@ -142,6 +152,28 @@ fn init_frames(boot_info: &BootInfo) {
         info!("frames: alloc/free smoke test passed");
     } else {
         warn!("frames: smoke test could not allocate");
+    }
+}
+
+/// Build the kernel address space (inheriting the bootloader's higher-half
+/// mappings), switch to it, and self-test the mapping path.
+fn init_paging(boot_info: &BootInfo) {
+    let Some(aspace) = AddressSpace::new_kernel(boot_info.hhdm_offset) else {
+        warn!("paging: could not allocate a PML4 (out of frames?)");
+        return;
+    };
+    aspace.switch();
+    info!("paging: running on our own PML4 (higher half inherited)");
+    *KERNEL_SPACE.lock() = Some(aspace);
+
+    let ok = KERNEL_SPACE
+        .lock()
+        .as_mut()
+        .is_some_and(AddressSpace::selftest);
+    if ok {
+        info!("paging: map/translate/unmap self-test passed");
+    } else {
+        warn!("paging: self-test FAILED");
     }
 }
 
