@@ -103,3 +103,17 @@ pub fn notification_pending(phys: u64, hhdm: u64) -> u64 {
     // first field is the `u64` signal word, valid to read.
     unsafe { ptr.read_volatile() }
 }
+
+/// Copy `bytes` into physical memory at `phys`, reached via the HHDM. Used to
+/// load code or data into a freshly allocated frame.
+///
+/// The caller must own `[phys, phys + bytes.len())` (e.g. a frame just
+/// allocated) and keep `bytes.len()` within it.
+pub fn write_phys(phys: u64, hhdm: u64, bytes: &[u8]) {
+    let dst = (hhdm + phys) as *mut u8;
+    // SAFETY: per the contract, `[phys, phys+len)` is our HHDM-mapped RAM; the
+    // source and destination do not overlap (source is a kernel buffer).
+    unsafe {
+        core::ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len());
+    }
+}

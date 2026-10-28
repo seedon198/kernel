@@ -368,6 +368,17 @@ impl AddressSpace {
         // SAFETY: in-bounds HHDM entry of a present table.
         let e = PageTableEntry::from_bits(unsafe { ptr.read_volatile() });
         if e.is_present() {
+            // Upgrade an existing intermediate so the whole path permits at
+            // least `parent_flags`. U/S and R/W are cumulative across levels, so
+            // reusing a kernel-created table (e.g. left behind by an earlier
+            // mapping) for a user page requires OR-ing USER/WRITABLE into it.
+            let want = parent_flags.bits();
+            if e.flags().bits() & want != want {
+                let upgraded = PageTableEntry::new(e.addr(), e.flags() | parent_flags);
+                // SAFETY: as above; widening an intermediate entry's flags,
+                // keeping its address.
+                unsafe { ptr.write_volatile(upgraded.bits()) }
+            }
             return Ok(e.addr());
         }
         let new = frame::alloc_frame().ok_or(MapError::OutOfFrames)?; // zeroed

@@ -46,6 +46,12 @@ static CONTEXTS: [hal::context::Context; 3] = [
 static A_TICKS: AtomicU64 = AtomicU64::new(0);
 static B_TICKS: AtomicU64 = AtomicU64::new(0);
 
+/// Saved boot-thread context for the ring-3 demo (#79): `enter_user` saves here,
+/// and the "exit" syscall resumes it to return to the boot thread.
+static BOOT_RETURN: hal::context::Context = hal::context::Context::new();
+/// Count of ring-3 syscalls seen, so the second one is treated as "exit".
+static SYSCALLS: AtomicU64 = AtomicU64::new(0);
+
 /// Virtual base of the kernel heap window. Deliberately placed *below* the
 /// KASLR window (the top 2 GiB, from [`HEAP_LIMIT`]): Limine always loads the
 /// kernel image at or above `0xffffffff80000000`, so a heap region that lives
@@ -165,6 +171,10 @@ fn kmain(boot_info: &BootInfo) -> ! {
     // Threads & cooperative round-robin scheduling (M4, #78): two kernel
     // threads switching via a hal context switch and the pure scheduler.
     demo_threads(boot_info);
+
+    // Ring 3 + syscall (M4, #79): enter a user stub, cross into the kernel via
+    // syscall, and return.
+    demo_syscall(boot_info);
 
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
@@ -801,6 +811,83 @@ fn demo_threads(boot_info: &BootInfo) {
     );
     assert!(a > 0 && b > 0, "worker threads never ran");
     info!("sched: both threads ran via context switch (A={a}, B={b})");
+}
+
+/// The kernel's system-call handler (#79). The first ring-3 syscall is logged
+/// (proving the message registers crossed correctly) and returns via `sysret`;
+/// the second is treated as "exit" and resumes the boot thread.
+fn syscall_handler(args: &hal::syscall::SyscallArgs) -> u64 {
+    let n = SYSCALLS.fetch_add(1, Ordering::Relaxed);
+    if n == 0 {
+        let mi = capability::MessageInfo::from_bits(args.msg_info);
+        info!(
+            "syscall: ring-3 call — cap={} label={} len={} mr0={:#x}",
+            args.cap,
+            mi.label(),
+            mi.length(),
+            args.mr[0]
+        );
+        0
+    } else {
+        info!("syscall: ring-3 exit — returning to the boot thread");
+        hal::context::resume(BOOT_RETURN.rsp()); // diverges; never returns here
+    }
+}
+
+/// Enter ring 3 for the first time and round-trip through the syscall boundary
+/// (#79): map a tiny user stub (`syscall; syscall; jmp .`) and stack, drop to
+/// ring 3, let it call in and out, then resume the boot thread.
+fn demo_syscall(boot_info: &BootInfo) {
+    use capability::MessageInfo;
+    use hal::paging::Flags;
+    use hal::syscall::UserEntry;
+
+    const USER_CODE_VA: u64 = 0x4000_0000;
+    const USER_STACK_VA: u64 = 0x5000_0000;
+    let hhdm = boot_info.hhdm_offset;
+
+    hal::syscall::init();
+    hal::syscall::register(syscall_handler);
+
+    let (Some(code), Some(stack)) = (hal::frame::alloc_frame(), hal::frame::alloc_frame()) else {
+        warn!("syscall: no frames for the user demo");
+        return;
+    };
+    // User stub: `syscall; syscall; jmp .` (the jmp is a safety net; the second
+    // syscall never returns — the handler resumes the boot thread).
+    hal::object::write_phys(code.addr(), hhdm, &[0x0f, 0x05, 0x0f, 0x05, 0xeb, 0xfe]);
+
+    {
+        let mut guard = KERNEL_SPACE.lock();
+        let Some(aspace) = guard.as_mut() else {
+            warn!("syscall: no address space");
+            return;
+        };
+        // Code: user R-X. Stack: user RW+NX.
+        if aspace.map(USER_CODE_VA, code.addr(), Flags::USER).is_err()
+            || aspace
+                .map(
+                    USER_STACK_VA,
+                    stack.addr(),
+                    Flags::USER | Flags::WRITABLE | Flags::NO_EXECUTE,
+                )
+                .is_err()
+        {
+            warn!("syscall: user mapping failed");
+            return;
+        }
+    }
+
+    let entry = UserEntry {
+        rip: USER_CODE_VA,
+        rsp: USER_STACK_VA + hal::paging::PAGE,
+        cap: 7,
+        msg_info: MessageInfo::new(42, 1, 0).bits(),
+        mr: [0x00C0_FFEE, 0, 0, 0],
+    };
+    info!("syscall: entering ring 3 (user stub syscalls in and out)");
+    hal::syscall::enter_user(&BOOT_RETURN, &entry);
+    info!("syscall: back in the boot thread after ring-3 round trip");
 }
 
 #[panic_handler]
