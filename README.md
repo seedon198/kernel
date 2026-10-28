@@ -121,7 +121,7 @@ Details and hardening goals: [docs/roadmap.md](docs/roadmap.md).
 
 - [Development environment](docs/development-environment.md)
 - [Architecture overview](docs/architecture/overview.md)
-- [Security model](docs/architecture/security-model.md) · [Threat model](docs/architecture/threat-model.md)
+- [Security model](docs/architecture/security-model.md) · [Capabilities](docs/architecture/capabilities.md) · [Threat model](docs/architecture/threat-model.md)
 - [Boot process](docs/architecture/boot.md) · [Memory layout](docs/architecture/memory-layout.md) · [Memory management](docs/architecture/memory-management.md)
 - [Coding style](docs/coding-style.md)
 - [Architecture Decision Records](docs/adr/)

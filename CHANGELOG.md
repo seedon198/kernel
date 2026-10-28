@@ -20,6 +20,13 @@ All notable changes are documented here. The format follows
 
 ### M3: Capabilities & IPC
 
+- Documentation (#58): `docs/architecture/capabilities.md` documents the whole
+  capability model (rights/attenuation, cap space & CNodes, Untyped/retype,
+  object kinds, the invocation API, and the pure-crate/hal layering), and what
+  is deferred to M4 (blocking IPC, the syscall entry, Thread, Untyped
+  splitting/revoke). The security-model doc, threat model, roadmap, and README
+  are updated to match. **M3's capability model is complete.**
+
 - Capability invocation API (#57): a new pure `capability::invoke` module —
   `Method` (CNode copy/mint/move/delete, `FrameIdentify`, `UntypedRetype`,
   `NotificationSignal`), `InvokeOk`/`InvokeError`, and `Method::authorize`
