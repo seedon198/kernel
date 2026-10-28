@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### M3: Capabilities & IPC
+
+- Capability core (#53): a new pure `capability` crate (`#![forbid(unsafe_code)]`,
+  host-tested) with the capability algebra — `Rights` bit flags with
+  intersection/attenuation, and a `Capability<Obj>` (object handle + rights +
+  badge) whose `derive`/`mint` can only weaken rights (never widen) and set a
+  badge once. Generic over the object handle so the kernel binds it to real
+  objects. Per [ADR 0016](docs/adr/0016-capability-implementation.md).
+
 ## [0.2.0] - 2026-10-28
 
 M2: memory & isolation. The kernel takes full control of physical and virtual

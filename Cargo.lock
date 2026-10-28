@@ -13,6 +13,10 @@ name = "boot-info"
 version = "0.0.1"
 
 [[package]]
+name = "capability"
+version = "0.0.1"
+
+[[package]]
 name = "frame-alloc"
 version = "0.0.1"
 
