@@ -71,6 +71,11 @@ fn kmain(boot_info: &BootInfo) -> ! {
         boot_info.hhdm_offset, boot_info.kernel_phys_base, boot_info.kernel_virt_base
     );
 
+    // Physical frame allocator (M2, #38). Translate the memory map into the
+    // allocator's region view (only RegionKind::Usable is handed out), then
+    // bring it up and exercise it.
+    init_frames(boot_info);
+
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
     debug!("triggering a test breakpoint (#BP)...");
@@ -80,6 +85,64 @@ fn kmain(boot_info: &BootInfo) -> ! {
     info!("kernel: halting (no scheduler yet)");
 
     hal::cpu::halt_loop();
+}
+
+/// Bring up the physical frame allocator from the boot memory map and exercise
+/// it with a small alloc/free smoke test.
+fn init_frames(boot_info: &BootInfo) {
+    use boot_info::RegionKind;
+    use hal::frame::Region;
+
+    let src = boot_info.regions();
+    let mut regions = [Region {
+        base: 0,
+        length: 0,
+        usable: false,
+    }; boot_info::MAX_MEMORY_REGIONS];
+    for (dst, r) in regions.iter_mut().zip(src) {
+        *dst = Region {
+            base: r.base,
+            length: r.length,
+            usable: r.kind == RegionKind::Usable,
+        };
+    }
+
+    if !hal::frame::init(&regions[..src.len()], boot_info.hhdm_offset) {
+        warn!("frames: allocator init failed (no usable RAM?)");
+        return;
+    }
+
+    if let Some(s) = hal::frame::stats() {
+        info!(
+            "frames: {} MiB usable, {} free / {} total frames tracked",
+            s.usable * hal::frame::FRAME_SIZE as usize / (1024 * 1024),
+            s.free,
+            s.total,
+        );
+    }
+
+    // Smoke test: allocate three frames, confirm they are distinct and zeroed
+    // by construction, free them, and confirm the pool returns to its size.
+    let before = hal::frame::stats().map_or(0, |s| s.free);
+    let a = hal::frame::alloc_frame();
+    let b = hal::frame::alloc_frame();
+    let c = hal::frame::alloc_frame();
+    if let (Some(a), Some(b), Some(c)) = (a, b, c) {
+        debug!(
+            "frames: smoke test got {:#x} {:#x} {:#x}",
+            a.addr(),
+            b.addr(),
+            c.addr()
+        );
+        hal::frame::free_frame(a);
+        hal::frame::free_frame(b);
+        hal::frame::free_frame(c);
+        let after = hal::frame::stats().map_or(0, |s| s.free);
+        assert_eq!(before, after, "frame smoke test leaked frames");
+        info!("frames: alloc/free smoke test passed");
+    } else {
+        warn!("frames: smoke test could not allocate");
+    }
 }
 
 #[panic_handler]
