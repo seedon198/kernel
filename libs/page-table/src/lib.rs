@@ -151,6 +151,67 @@ impl PageTableEntry {
     }
 }
 
+/// A decoded x86-64 page-fault error code (the value the CPU pushes for #PF).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PageFaultError(u64);
+
+impl PageFaultError {
+    /// Wrap a raw #PF error code.
+    #[must_use]
+    pub const fn new(bits: u64) -> Self {
+        Self(bits)
+    }
+
+    /// Bit 0 — set: a protection violation on a present page; clear: the page
+    /// was not present.
+    #[must_use]
+    pub const fn protection_violation(self) -> bool {
+        self.0 & (1 << 0) != 0
+    }
+
+    /// Bit 1 — the access was a write (else a read).
+    #[must_use]
+    pub const fn write(self) -> bool {
+        self.0 & (1 << 1) != 0
+    }
+
+    /// Bit 2 — the access was from user mode (CPL 3) rather than supervisor.
+    #[must_use]
+    pub const fn user(self) -> bool {
+        self.0 & (1 << 2) != 0
+    }
+
+    /// Bit 3 — a reserved bit was set in a paging-structure entry.
+    #[must_use]
+    pub const fn reserved_write(self) -> bool {
+        self.0 & (1 << 3) != 0
+    }
+
+    /// Bit 4 — the access was an instruction fetch (NX / SMEP).
+    #[must_use]
+    pub const fn instruction_fetch(self) -> bool {
+        self.0 & (1 << 4) != 0
+    }
+
+    /// Bit 5 — a protection-key violation.
+    #[must_use]
+    pub const fn protection_key(self) -> bool {
+        self.0 & (1 << 5) != 0
+    }
+
+    /// Bit 6 — a shadow-stack access.
+    #[must_use]
+    pub const fn shadow_stack(self) -> bool {
+        self.0 & (1 << 6) != 0
+    }
+
+    /// The raw error-code bits.
+    #[must_use]
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+}
+
 /// The four table indices (PML4, PDPT, PD, PT — in that order) a virtual
 /// address walks through.
 #[must_use]
@@ -236,6 +297,24 @@ mod tests {
         assert_eq!(table_indices(0xffff_ffff_8000_0000), [511, 510, 0, 0]);
         // The HHDM base used by Limine in this project.
         assert_eq!(table_indices(0xffff_8000_0000_0000)[0], 256);
+    }
+
+    #[test]
+    fn page_fault_error_decodes_bits() {
+        // present + write + instruction-fetch (protection violation on a write).
+        let e = PageFaultError::new(0b1_0011);
+        assert!(e.protection_violation());
+        assert!(e.write());
+        assert!(!e.user());
+        assert!(e.instruction_fetch());
+        assert!(!e.reserved_write());
+
+        // not-present, read, user mode.
+        let e = PageFaultError::new(0b100);
+        assert!(!e.protection_violation());
+        assert!(!e.write());
+        assert!(e.user());
+        assert!(!e.instruction_fetch());
     }
 
     #[test]

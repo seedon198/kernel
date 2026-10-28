@@ -119,6 +119,10 @@ fn kmain(boot_info: &BootInfo) -> ! {
     // Kernel heap (M2, #41): a growable allocator, so Box/Vec work.
     init_heap();
 
+    // Page-fault diagnostics (M2, #42): register named regions and prove the
+    // recoverable-probe + classification path.
+    init_fault_diagnostics(boot_info);
+
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
     debug!("triggering a test breakpoint (#BP)...");
@@ -342,6 +346,50 @@ fn init_heap() {
         );
     } else {
         warn!("heap: self-test FAILED");
+    }
+}
+
+/// Register named memory regions for page-fault classification, then verify the
+/// recoverable probe (a guard page faults and recovers; mapped memory reads
+/// fine) and the classifier.
+fn init_fault_diagnostics(boot_info: &BootInfo) {
+    use hal::fault::{classify, probe_read, register_region};
+
+    let s = boot::kernel_sections();
+    register_region(".text", s.text.0, s.text.1);
+    register_region(".rodata", s.rodata.0, s.rodata.1);
+    register_region(".data/.bss", s.data.0, s.data.1);
+    register_region(
+        "HHDM",
+        boot_info.hhdm_offset,
+        boot_info.hhdm_offset + boot_info.highest_address(),
+    );
+    register_region("kernel heap", HEAP_BASE, HEAP_NEXT.load(Ordering::Relaxed));
+    for g in hal::gdt::guard_pages() {
+        register_region("stack guard", g, g + hal::paging::PAGE);
+    }
+
+    // The recoverable probe: a guard page must fault (and recover); mapped
+    // kernel code must read without faulting.
+    let guard = hal::gdt::guard_pages()[0];
+    let guard_faults = probe_read(guard);
+    let text_ok = !probe_read(s.text.0);
+    assert!(guard_faults, "guard page should be unmapped");
+    assert!(text_ok, "mapped .text should be readable");
+    info!("pf: probe verified — guard page faults & recovers, mapped memory reads ok");
+
+    // Show the classifier naming a few representative addresses.
+    let samples = [
+        ("text", s.text.0),
+        ("heap", HEAP_BASE),
+        ("hhdm", boot_info.hhdm_offset),
+        ("guard", guard),
+    ];
+    for (label, addr) in samples {
+        debug!(
+            "pf: {addr:#x} ({label}) -> {}",
+            classify(addr).unwrap_or("unmapped/unknown")
+        );
     }
 }
 

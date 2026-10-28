@@ -138,6 +138,12 @@ fn read_cr2() -> u64 {
 /// report over serial. A breakpoint (#BP) is a trap and resumes; any other CPU
 /// exception is treated as unrecoverable and halts.
 fn default_exception(frame: &mut TrapFrame) {
+    // Recoverable memory probe: a #PF at the probe site resumes at its fixup,
+    // silently, instead of reporting and halting (see `crate::fault`).
+    if crate::fault::try_recover(frame) {
+        return;
+    }
+
     // Use a fresh serial port (like the panic handler) rather than the kernel
     // logger, so a fault while the log lock is held still reports.
     let mut com1 = SerialPort::com1();
@@ -152,11 +158,28 @@ fn default_exception(frame: &mut TrapFrame) {
     );
     let _ = writeln!(com1, "  error_code = {:#018x}", frame.error_code);
     if frame.vector == 14 {
-        let _ = writeln!(
-            com1,
-            "  cr2        = {:#018x}  (faulting address)",
-            read_cr2()
-        );
+        let cr2 = read_cr2();
+        let region = crate::fault::classify(cr2).unwrap_or("unmapped/unknown");
+        let _ = writeln!(com1, "  cr2        = {cr2:#018x}  ({region})");
+
+        let e = page_table::PageFaultError::new(frame.error_code);
+        let kind = if e.protection_violation() {
+            "protection violation"
+        } else {
+            "not present"
+        };
+        let op = if e.instruction_fetch() {
+            "instruction fetch"
+        } else if e.write() {
+            "write"
+        } else {
+            "read"
+        };
+        let mode = if e.user() { "user" } else { "supervisor" };
+        let _ = writeln!(com1, "  cause      = {kind}, {op}, {mode} mode");
+        if e.reserved_write() {
+            let _ = writeln!(com1, "               (reserved bit set in a page table)");
+        }
     }
     let _ = writeln!(
         com1,
