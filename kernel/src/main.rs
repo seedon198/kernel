@@ -98,6 +98,12 @@ fn kmain(boot_info: &BootInfo) -> ! {
         "layout: hhdm={:#x}  kernel phys={:#x} virt={:#x}",
         boot_info.hhdm_offset, boot_info.kernel_phys_base, boot_info.kernel_virt_base
     );
+    // KASLR (#47): the kernel is a PIE that Limine slides to a random base each
+    // boot. Log the slide so backtrace addresses can be mapped back to the
+    // link base for `llvm-addr2line` (subtract the slide first).
+    const KERNEL_LINK_BASE: u64 = 0xffff_ffff_8000_0000;
+    let slide = boot_info.kernel_virt_base.wrapping_sub(KERNEL_LINK_BASE);
+    info!("kaslr: kernel slide={slide:#x} (subtract from addrs before addr2line)");
 
     // Physical frame allocator (M2, #38). Translate the memory map into the
     // allocator's region view (only RegionKind::Usable is handed out), then

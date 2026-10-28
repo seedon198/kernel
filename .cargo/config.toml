@@ -10,7 +10,16 @@ xtask = "run --package xtask --"
 # workspace root, which is where `cargo xtask build` runs cargo from.
 [target.x86_64-unknown-none]
 rustflags = [
-    "-C", "relocation-model=static",
+    # Position-independent so the kernel is an ET_DYN PIE that Limine can slide
+    # to a random base (KASLR, #47); Limine applies the RELATIVE relocations.
+    "-C", "relocation-model=pic",
+    "-C", "link-arg=-pie",
+    "-C", "link-arg=--no-dynamic-linker",
+    # Allow RELATIVE relocations in read-only sections: static pointer tables
+    # (e.g. the IDT stubs) become dynamic relocations Limine applies at load,
+    # before we re-protect .rodata. Without this, lld rejects R_X86_64_64.
+    "-C", "link-arg=-z",
+    "-C", "link-arg=notext",
     "-C", "link-arg=-Tkernel/arch/x86_64/linker.ld",
     # Keep frame pointers so the panic/exception backtrace can walk the rbp chain.
     "-C", "force-frame-pointers=yes",
