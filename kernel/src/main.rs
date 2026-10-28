@@ -10,19 +10,36 @@
 //! crate (hardware access) and the [`boot`] module (bootloader/linker glue).
 //! Kernel logic — [`kmain`] and below — contains no `unsafe`.
 
+extern crate alloc;
+
 mod boot;
 mod log;
 
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 use boot_info::BootInfo;
 use core::fmt::Write;
 use core::panic::PanicInfo;
-use hal::paging::AddressSpace;
+use core::sync::atomic::{AtomicU64, Ordering};
+use hal::paging::{AddressSpace, Flags};
 use hal::serial::SerialPort;
 use hal::sync::SpinLock;
 
 /// The kernel's address space, established in [`init_paging`]. Held for later
 /// milestones (the heap and guard pages in #41, user address spaces in M4).
 static KERNEL_SPACE: SpinLock<Option<AddressSpace>> = SpinLock::new(None);
+
+/// The kernel heap (#41). Backed by frames mapped on demand by [`heap_grow`].
+#[global_allocator]
+static HEAP: hal::heap::KernelHeap = hal::heap::KernelHeap::new();
+
+/// Virtual base of the kernel heap window — in the top 2 GiB, clear of the
+/// kernel image at `0xffffffff80000000`.
+const HEAP_BASE: u64 = 0xffff_ffff_9000_0000;
+/// Minimum bytes mapped per growth (64 frames).
+const HEAP_CHUNK: u64 = 256 * 1024;
+/// Next unmapped heap virtual address; grows contiguously upward.
+static HEAP_NEXT: AtomicU64 = AtomicU64::new(HEAP_BASE);
 
 /// Architecture-neutral kernel entry, called by the boot code once the
 /// bootloader handoff is validated and a [`BootInfo`] has been assembled.
@@ -65,6 +82,11 @@ fn kmain(boot_info: &BootInfo) -> ! {
     assert!(f.nx, "CPU lacks NX (No-Execute); required for W^X");
     assert!(f.sse2, "CPU lacks SSE2; required baseline for x86-64");
 
+    // Supervisor-access protections (M2, #41): block the kernel from executing
+    // or (SMAP) reading user-accessible pages. Safe now — no user pages exist.
+    let (smep, smap) = hal::cpu::enable_smep_smap(f.smep, f.smap);
+    info!("cpu protections: smep={smep} smap={smap}");
+
     // Physical memory summary (full map consumed by the allocator in M2).
     info!(
         "memory: {} MiB usable / {} MiB total across {} regions",
@@ -89,6 +111,13 @@ fn kmain(boot_info: &BootInfo) -> ! {
     // W^X + NX hardening (M2, #40): enforce per-section kernel permissions and
     // make the direct physical map non-executable.
     harden_memory(boot_info);
+
+    // Guard pages (M2, #41): unmap the page below each HAL-owned stack so an
+    // overflow faults instead of corrupting its neighbor.
+    install_guard_pages();
+
+    // Kernel heap (M2, #41): a growable allocator, so Box/Vec work.
+    init_heap();
 
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
@@ -240,6 +269,80 @@ fn harden_memory(boot_info: &BootInfo) {
     }
     assert!(ok, "harden: W^X/NX invariants not satisfied");
     info!("harden: verified — .text R-X, .rodata/.data NX, HHDM NX, no W+X");
+}
+
+/// Unmap the stack guard pages so an overflow of a HAL-owned stack faults.
+fn install_guard_pages() {
+    let mut guard = KERNEL_SPACE.lock();
+    let Some(aspace) = guard.as_mut() else {
+        return;
+    };
+    let mut n = 0;
+    for page in hal::gdt::guard_pages() {
+        if aspace.unmap(page) {
+            n += 1;
+        }
+    }
+    aspace.reload();
+    info!("guard: unmapped {} stack guard pages", n);
+}
+
+/// Grow the heap on demand: map `max(min_bytes, HEAP_CHUNK)` of fresh,
+/// zeroed frames (RW+NX) contiguously at the next heap address, and return the
+/// newly mapped `(base, size)`. Called by the allocator when no block fits.
+///
+/// Must not itself allocate on the heap (it runs while the heap lock is held);
+/// it only touches the frame allocator and the kernel page tables.
+fn heap_grow(min_bytes: usize) -> Option<(usize, usize)> {
+    let want = (min_bytes as u64).max(HEAP_CHUNK);
+    let pages = want.div_ceil(hal::paging::PAGE);
+    let size = pages * hal::paging::PAGE;
+    let base = HEAP_NEXT.load(Ordering::Relaxed);
+
+    let mut guard = KERNEL_SPACE.lock();
+    let aspace = guard.as_mut()?;
+    let flags = Flags::WRITABLE | Flags::NO_EXECUTE;
+    for i in 0..pages {
+        let frame = hal::frame::alloc_frame()?;
+        aspace
+            .map(base + i * hal::paging::PAGE, frame.addr(), flags)
+            .ok()?;
+    }
+    HEAP_NEXT.store(base + size, Ordering::Relaxed);
+    Some((base as usize, size as usize))
+}
+
+/// Bring up the kernel heap and exercise it (forcing a growth and verifying
+/// `Vec`/`Box` round-trip correctly).
+fn init_heap() {
+    if !HEAP.init(heap_grow) {
+        warn!("heap: init failed (could not map initial region)");
+        return;
+    }
+
+    // Grow past the initial chunk (40k u64 = 320 KiB > 256 KiB) to exercise the
+    // grow + coalesce path, and check the data survives reallocation.
+    let mut v: Vec<u64> = Vec::new();
+    for i in 0..40_000u64 {
+        v.push(i);
+    }
+    let sum: u64 = v.iter().sum();
+    let expected: u64 = (0..40_000u64).sum();
+    let boxed = Box::new(0xC0FFEE_u64);
+    let ok = sum == expected && *boxed == 0xC0FFEE;
+    drop(v);
+    drop(boxed);
+
+    let (live, mapped) = HEAP.stats();
+    if ok {
+        info!(
+            "heap: ok — Vec/Box verified; {} KiB mapped, {} bytes live",
+            mapped / 1024,
+            live
+        );
+    } else {
+        warn!("heap: self-test FAILED");
+    }
 }
 
 #[panic_handler]
