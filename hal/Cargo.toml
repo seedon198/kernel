@@ -6,3 +6,6 @@ license.workspace = true
 repository.workspace = true
 description = "x86-64 hardware abstraction layer — the only crate permitting `unsafe` (ADR 0007)."
 publish = false
+
+[dependencies]
+frame-alloc = { path = "../libs/frame-alloc" }

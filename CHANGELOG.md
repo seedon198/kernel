@@ -6,6 +6,19 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### M2: Memory & isolation
+
+- Physical frame allocator (#38): a bitmap allocator (one bit per 4 KiB frame)
+  built from the memory map, per [ADR 0010](docs/adr/0010-bitmap-frame-allocator.md).
+  The allocation *policy* lives in the new `frame-alloc` crate —
+  `#![forbid(unsafe_code)]`, host-unit-tested — which decides which frame to
+  hand out over an abstract bitmap. `hal::frame` backs that bitmap with real
+  RAM through the HHDM and zeroes every frame on allocation (no stale data
+  leaks to a new owner). Frame 0 and the bitmap's own storage are reserved;
+  double-free and free-of-untracked are detected as bugs. `kmain` brings the
+  allocator up from `BootInfo` and runs an alloc/free smoke test. Single-frame
+  only; large-page / DMA-contiguous allocation is deferred (ADR 0010).
+
 ## [0.1.0] - 2026-10-28
 
 M1: the kernel takes ownership of the CPU. It installs its own GDT/TSS and IDT,

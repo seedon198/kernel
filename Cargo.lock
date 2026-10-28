@@ -13,8 +13,15 @@ name = "boot-info"
 version = "0.0.1"
 
 [[package]]
+name = "frame-alloc"
+version = "0.0.1"
+
+[[package]]
 name = "hal"
 version = "0.0.1"
+dependencies = [
+ "frame-alloc",
+]
 
 [[package]]
 name = "kernel"
