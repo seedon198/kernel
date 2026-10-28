@@ -8,6 +8,17 @@ All notable changes are documented here. The format follows
 
 ### M2: Memory & isolation
 
+- Kernel KASLR (#47), per [ADR 0015](docs/adr/0015-kaslr.md): the kernel is now
+  built as a position-independent executable (`relocation-model=pic`, linked
+  `-pie`, with a `PT_DYNAMIC` segment and `R_X86_64_RELATIVE` relocations), so
+  Limine slides it to a random base each boot and applies its relocations.
+  `boot/limine.conf` enables `kaslr`; `kmain` logs the slide so backtrace
+  addresses map back to the link base for `llvm-addr2line`. Verified in QEMU:
+  the kernel base differs across boots and the whole memory subsystem (paging,
+  W^X/NX, guard pages, heap, #PF diagnostics) runs correctly at the slid base.
+  (HHDM-base randomization is configured but not yet effective with the
+  stable-pinned Limine 0.5 protocol revision; the kernel reads the HHDM offset
+  dynamically regardless.)
 - Page-fault diagnostics (#42), per
   [ADR 0014](docs/adr/0014-page-fault-diagnostics.md): the #PF handler now
   decodes the error code into a plain-language cause (not-present vs protection
