@@ -16,10 +16,11 @@
 //! through `hal`.
 #![allow(unsafe_code)]
 
-use boot_info::{BootInfo, MemoryRegion, RegionKind};
+use boot_info::{BootInfo, Framebuffer, MemoryRegion, RegionKind};
 use limine::memory_map::EntryType;
 use limine::request::{
-    ExecutableAddressRequest, HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker,
+    ExecutableAddressRequest, FramebufferRequest, HhdmRequest, MemoryMapRequest, RequestsEndMarker,
+    RequestsStartMarker,
 };
 use limine::BaseRevision;
 
@@ -46,6 +47,11 @@ static HHDM: HhdmRequest = HhdmRequest::new();
 #[used]
 #[unsafe(link_section = ".requests")]
 static KERNEL_ADDRESS: ExecutableAddressRequest = ExecutableAddressRequest::new();
+
+/// A linear framebuffer for the on-screen console (M1, #14).
+#[used]
+#[unsafe(link_section = ".requests")]
+static FRAMEBUFFER: FramebufferRequest = FramebufferRequest::new();
 
 /// Markers bounding the request section so the bootloader's scan is fast.
 #[used]
@@ -84,6 +90,21 @@ pub extern "C" fn _start() -> ! {
                 kind: region_kind(entry.entry_type),
             });
         }
+    }
+    if let Some(fb) = FRAMEBUFFER
+        .get_response()
+        .and_then(|r| r.framebuffers().next())
+    {
+        boot_info.framebuffer = Some(Framebuffer {
+            address: fb.addr() as u64,
+            width: fb.width(),
+            height: fb.height(),
+            pitch: fb.pitch(),
+            bpp: fb.bpp(),
+            red_shift: fb.red_mask_shift(),
+            green_shift: fb.green_mask_shift(),
+            blue_shift: fb.blue_mask_shift(),
+        });
     }
 
     crate::kmain(&boot_info)

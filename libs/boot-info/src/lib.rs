@@ -56,6 +56,27 @@ impl MemoryRegion {
     };
 }
 
+/// A linear framebuffer the bootloader set up for us.
+#[derive(Debug, Clone, Copy)]
+pub struct Framebuffer {
+    /// Virtual address of the framebuffer (mapped by the bootloader).
+    pub address: u64,
+    /// Visible width in pixels.
+    pub width: u64,
+    /// Visible height in pixels.
+    pub height: u64,
+    /// Bytes per scanline.
+    pub pitch: u64,
+    /// Bits per pixel.
+    pub bpp: u16,
+    /// Bit position of the red channel within a pixel.
+    pub red_shift: u8,
+    /// Bit position of the green channel within a pixel.
+    pub green_shift: u8,
+    /// Bit position of the blue channel within a pixel.
+    pub blue_shift: u8,
+}
+
 /// Information handed from the boot code to `kmain`.
 #[derive(Clone, Copy)]
 pub struct BootInfo {
@@ -65,6 +86,8 @@ pub struct BootInfo {
     pub kernel_phys_base: u64,
     /// Virtual base address of the loaded kernel image.
     pub kernel_virt_base: u64,
+    /// The framebuffer, if the bootloader provided one.
+    pub framebuffer: Option<Framebuffer>,
     regions: [MemoryRegion; MAX_MEMORY_REGIONS],
     region_count: usize,
 }
@@ -83,6 +106,7 @@ impl BootInfo {
             hhdm_offset: 0,
             kernel_phys_base: 0,
             kernel_virt_base: 0,
+            framebuffer: None,
             regions: [MemoryRegion::EMPTY; MAX_MEMORY_REGIONS],
             region_count: 0,
         }
