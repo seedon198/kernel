@@ -8,6 +8,10 @@ All notable changes are documented here. The format follows
 
 ### M2: Memory & isolation
 
+- Documentation (#43): `docs/architecture/memory-management.md` describes the
+  whole M2 subsystem (frame allocator, page tables, W^X/NX, KASLR, SMEP/SMAP,
+  guard pages, heap, page-fault diagnostics) and its layering; the threat model,
+  memory-layout doc, README, and roadmap are updated to match. **M2 complete.**
 - Kernel KASLR (#47), per [ADR 0015](docs/adr/0015-kaslr.md): the kernel is now
   built as a position-independent executable (`relocation-model=pic`, linked
   `-pie`, with a `PT_DYNAMIC` segment and `R_X86_64_RELATIVE` relocations), so

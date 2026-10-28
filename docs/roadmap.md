@@ -37,11 +37,14 @@ Two themes run through every milestone:
 
 ## M2: Memory & isolation
 
-- [ ] Physical frame allocator
-- [ ] Virtual memory: own page tables, per-address-space isolation
-- [ ] **W^X** enforced, **NX** everywhere, **KASLR** for the kernel image
-- [ ] SMEP/SMAP enabled; guard pages; kernel heap
-- [ ] Page-fault diagnostics
+See [architecture/memory-management.md](architecture/memory-management.md).
+
+- [x] Physical frame allocator (bitmap)
+- [x] Virtual memory: own page tables, per-address-space isolation
+- [x] **W^X** enforced, **NX** everywhere (incl. HHDM), **KASLR** for the kernel image
+- [x] SMEP/SMAP enabled; guard pages; kernel heap
+- [x] Page-fault diagnostics
+- [x] `architecture/memory-management.md`; threat model updated
 
 ## M3: Capabilities & IPC
 

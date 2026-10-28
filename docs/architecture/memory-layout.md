@@ -1,6 +1,8 @@
 # Memory Layout
 
-> Status: **design**. Finalized in milestone M2.
+> Status: **implemented in milestone M2.** See
+> [memory-management.md](memory-management.md) for how each region is set up and
+> protected.
 
 x86-64 with 4-level paging gives a 48-bit virtual address space in two
 canonical halves: user space in the lower half, the kernel in the upper half.
@@ -15,12 +17,16 @@ in ordinary **user** address spaces, not in the kernel half.
 | `0x0000000000001000` | `0x00007fffffffffff` | ~128 TiB | **User space** (per task: a server or tool) |
 | `0x0000800000000000` | `0xffff7fffffffffff` | — | Non-canonical hole (#GP on access) |
 | `0xffff800000000000` | HHDM + RAM | ≤ 64 TiB | **HHDM** — direct map of physical memory (offset from Limine) |
-| `0xffffc00000000000` | `0xffffdfffffffffff` | 32 TiB | Kernel heap / dynamic mappings *(tentative)* |
+| `0xffffffff90000000` | grows up | window | **Kernel heap** — frames mapped on demand (RW+NX) |
 | *KASLR base* | … | 2 GiB window | **Kernel image** — randomized within the top 2 GiB |
 
 The kernel image sits in the top 2 GiB so code uses `-mcmodel=kernel`-style
-sign-extended 32-bit addressing. **KASLR** randomizes its base at boot, so the
-table above shows the window, not a fixed address.
+sign-extended 32-bit addressing. **KASLR** randomizes its base at boot (the
+kernel is a PIE that Limine slides; see
+[ADR 0015](../adr/0015-kaslr.md)), so the table shows the window, not a fixed
+address. The kernel heap currently uses a fixed higher-half base that is not yet
+coordinated with the KASLR slide (see
+[memory-management.md](memory-management.md#known-limitations--future-work)).
 
 ## Kernel image sections and W^X
 
