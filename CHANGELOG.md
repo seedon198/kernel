@@ -6,6 +6,56 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-28
+
+M1: the kernel takes ownership of the CPU. It installs its own GDT/TSS and IDT,
+handles exceptions with diagnostics and backtraces, understands its physical
+memory and CPU features, and logs to both serial and an on-screen framebuffer
+console.
+
+### Added
+
+- Structured kernel logging (#12): `hal::sync::SpinLock<T>` (minimal spinlock)
+  and a `kernel::log` module with severity levels, a runtime level filter, a
+  spinlock-guarded serial sink, and `error!`/`warn!`/`info!`/`debug!`/`trace!`
+  macros. `kmain` now logs `[INFO]`/`[DEBUG]` records; the panic handler
+  deliberately bypasses the logger (writes to its own serial port) to stay
+  deadlock-free.
+- GDT and TSS (#9): `hal::gdt` installs our own GDT (kernel + user code/data
+  descriptors ordered for a future `syscall`/`sysret`) and a 64-bit TSS with
+  dedicated IST stacks for #DF, NMI, and #MC plus an `rsp0` stack, then reloads
+  the segment registers and the task register. Hand-rolled per
+  [ADR 0009](docs/adr/0009-hand-rolled-cpu-tables.md).
+- IDT and exception handling (#10): `hal::idt` installs a 256-entry IDT whose
+  gates point at generated asm stubs that normalize the error code, build a
+  `TrapFrame`, and call a table-driven dispatcher. `register_handler(vector, fn)`
+  lets IRQ drivers hook in later (M3); CPU exceptions without a handler print a
+  diagnostic report (vector, error code, CR2 for #PF, register dump) and halt,
+  except #BP which resumes. Critical faults use the IST stacks from #9. A
+  shared `Racy` one-time-init cell was factored out of `gdt`. `kmain` triggers a
+  test `#BP` and resumes.
+- Panic reporting with backtrace (#11): `hal::backtrace` walks the frame-pointer
+  chain (the kernel is now built with `force-frame-pointers=yes`). The panic
+  handler prints the message, location, and a backtrace; fatal exceptions add a
+  backtrace to their register dump. Addresses resolve with
+  `llvm-addr2line -e <kernel> <addr>` (verified against a real call chain).
+- Memory map & CPU features (#13): the boot code parses the Limine memory map
+  into `BootInfo` (regions copied into a fixed array; usable/total RAM, HHDM
+  offset, kernel phys/virt base), and `hal::cpuid` detects the CPU vendor, brand,
+  and features (NX, SSE2, SMEP, SMAP, x2APIC, XSAVE, PCID, 1 GiB pages, RDRAND,
+  invariant TSC, syscall). `kmain` logs a RAM and CPU summary and asserts NX +
+  SSE2 are present. Host unit tests cover the `BootInfo` accounting.
+- Framebuffer console (#14): `hal::framebuffer` renders the bundled public-domain
+  8x8 bitmap font (`hal::font`) onto the Limine framebuffer — glyphs, newlines,
+  tabs, and scrolling — and registers as a second log sink, so kernel output
+  appears on screen as well as serial (the path that matters on real hardware
+  without a serial port). `BootInfo` carries the framebuffer geometry.
+
+## [0.0.1] - 2026-10-26
+
+M0: the project boots. Repository foundation, toolchain, and a bootable image
+that reaches the kernel and prints over serial in QEMU.
+
 ### Added
 
 - Project foundation for a security-focused Rust microkernel: README,
@@ -54,40 +104,5 @@ All notable changes are documented here. The format follows
   runs it for both BIOS and UEFI (BIOS boot is now covered on Linux runners).
   Serial logs are uploaded as artifacts. **M0 complete.**
 
-### M1: Kernel core
-
-- Structured kernel logging (#12): `hal::sync::SpinLock<T>` (minimal spinlock)
-  and a `kernel::log` module with severity levels, a runtime level filter, a
-  spinlock-guarded serial sink, and `error!`/`warn!`/`info!`/`debug!`/`trace!`
-  macros. `kmain` now logs `[INFO]`/`[DEBUG]` records; the panic handler
-  deliberately bypasses the logger (writes to its own serial port) to stay
-  deadlock-free.
-- GDT and TSS (#9): `hal::gdt` installs our own GDT (kernel + user code/data
-  descriptors ordered for a future `syscall`/`sysret`) and a 64-bit TSS with
-  dedicated IST stacks for #DF, NMI, and #MC plus an `rsp0` stack, then reloads
-  the segment registers and the task register. Hand-rolled per
-  [ADR 0009](docs/adr/0009-hand-rolled-cpu-tables.md).
-- IDT and exception handling (#10): `hal::idt` installs a 256-entry IDT whose
-  gates point at generated asm stubs that normalize the error code, build a
-  `TrapFrame`, and call a table-driven dispatcher. `register_handler(vector, fn)`
-  lets IRQ drivers hook in later (M3); CPU exceptions without a handler print a
-  diagnostic report (vector, error code, CR2 for #PF, register dump) and halt,
-  except #BP which resumes. Critical faults use the IST stacks from #9. A
-  shared `Racy` one-time-init cell was factored out of `gdt`. `kmain` triggers a
-  test `#BP` and resumes.
-- Panic reporting with backtrace (#11): `hal::backtrace` walks the frame-pointer
-  chain (the kernel is now built with `force-frame-pointers=yes`). The panic
-  handler prints the message, location, and a backtrace; fatal exceptions add a
-  backtrace to their register dump. Addresses resolve with
-  `llvm-addr2line -e <kernel> <addr>` (verified against a real call chain).
-- Memory map & CPU features (#13): the boot code parses the Limine memory map
-  into `BootInfo` (regions copied into a fixed array; usable/total RAM, HHDM
-  offset, kernel phys/virt base), and `hal::cpuid` detects the CPU vendor, brand,
-  and features (NX, SSE2, SMEP, SMAP, x2APIC, XSAVE, PCID, 1 GiB pages, RDRAND,
-  invariant TSC, syscall). `kmain` logs a RAM and CPU summary and asserts NX +
-  SSE2 are present. Host unit tests cover the `BootInfo` accounting.
-- Framebuffer console (#14): `hal::framebuffer` renders the bundled public-domain
-  8x8 bitmap font (`hal::font`) onto the Limine framebuffer — glyphs, newlines,
-  tabs, and scrolling — and registers as a second log sink, so kernel output
-  appears on screen as well as serial (the path that matters on real hardware
-  without a serial port). `BootInfo` carries the framebuffer geometry.
+[0.1.0]: https://github.com/seedon198/kernel/releases/tag/v0.1.0
+[0.0.1]: https://github.com/seedon198/kernel/releases/tag/v0.0.1
