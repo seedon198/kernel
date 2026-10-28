@@ -145,6 +145,10 @@ fn kmain(boot_info: &BootInfo) -> ! {
     // and install/attenuate real capabilities.
     demo_capabilities(boot_info);
 
+    // Capability invocation (M3, #57): dispatch rights-checked methods on
+    // capabilities — the surface M4's syscall entry will call.
+    demo_invoke(boot_info);
+
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
     debug!("triggering a test breakpoint (#BP)...");
@@ -528,6 +532,187 @@ fn demo_capabilities(boot_info: &BootInfo) {
     );
 
     hal::frame::free_frame(frame);
+}
+
+/// The kernel-side capability invocation entry (#57): resolve the invoked
+/// capability in `cspace`, authorize it (kind + rights), then perform the
+/// method's effect. M4's ring-3 `syscall` entry decodes raw register arguments
+/// into a [`Method`] and calls this.
+///
+/// CNode methods act on the acting `cspace` (M3 has a single cap space; M4
+/// generalizes to resolving the target CNode from the invoked capability).
+fn invoke(
+    cspace: &mut capability::CapSpace<capability::ObjectRef>,
+    invoked: capability::CapId,
+    method: capability::Method,
+    hhdm: u64,
+) -> Result<capability::InvokeOk, capability::InvokeError> {
+    use capability::{Capability, InvokeError, InvokeOk, Method, ObjectRef, Rights};
+
+    let cap = cspace.get(invoked).map_err(InvokeError::Cap)?;
+    method.authorize(&cap)?;
+
+    match method {
+        Method::CNodeCopy { src, dst, rights } => {
+            cspace.copy(src, dst, rights).map_err(InvokeError::Cap)?;
+            Ok(InvokeOk::Done)
+        }
+        Method::CNodeMint {
+            src,
+            dst,
+            rights,
+            badge,
+        } => {
+            cspace
+                .mint(src, dst, rights, badge)
+                .map_err(InvokeError::Cap)?;
+            Ok(InvokeOk::Done)
+        }
+        Method::CNodeMove { src, dst } => {
+            cspace.move_cap(src, dst).map_err(InvokeError::Cap)?;
+            Ok(InvokeOk::Done)
+        }
+        Method::CNodeDelete { id } => {
+            cspace.delete(id).map_err(InvokeError::Cap)?;
+            Ok(InvokeOk::Done)
+        }
+        Method::FrameIdentify => Ok(InvokeOk::Phys(cap.object.phys)),
+        Method::NotificationSignal { bits } => {
+            hal::object::notification_signal(cap.object.phys, bits, hhdm);
+            Ok(InvokeOk::Done)
+        }
+        Method::UntypedRetype { kind, count, dst } => {
+            let (size, align) = kind.fixed_layout().ok_or(InvokeError::Unsupported)?;
+            // The Untyped capability points at its control block (an `Untyped`).
+            let mut ut = hal::object::load_untyped(cap.object.phys, hhdm);
+            let base = hal::object::retype(&mut ut, size, align, count, hhdm)
+                .ok_or(InvokeError::OutOfMemory)?;
+            hal::object::store_untyped(cap.object.phys, hhdm, ut);
+            let obj = ObjectRef::new(kind, base);
+            cspace
+                .insert_at(dst, Capability::new(obj, Rights::ALL))
+                .map_err(InvokeError::Cap)?;
+            Ok(InvokeOk::Created(obj))
+        }
+    }
+}
+
+/// Exercise the invocation API end to end (#57): retype a Frame from an Untyped
+/// *through* `invoke`, identify it, show a rights-denied invocation, and signal
+/// a Notification.
+fn demo_invoke(boot_info: &BootInfo) {
+    use capability::{
+        cnode_bytes, slot_align, CapId, Capability, InvokeError, InvokeOk, Method, ObjectKind,
+        ObjectRef, Rights, Untyped,
+    };
+
+    const SLOTS: usize = 16;
+    let hhdm = boot_info.hhdm_offset;
+
+    let (Some(ctrl), Some(region)) = (hal::frame::alloc_frame(), hal::frame::alloc_frame()) else {
+        warn!("invoke: no frames for the demo");
+        return;
+    };
+
+    // Carve a CNode (cap space), an Untyped control block, and a Notification
+    // from the control frame using a local bootstrap region.
+    let mut boot = Untyped::new(ctrl.addr(), hal::paging::PAGE);
+    let un = core::mem::size_of::<Untyped>() as u64;
+    let ua = core::mem::align_of::<Untyped>() as u64;
+    let (nsz, nal) = ObjectKind::Notification.fixed_layout().unwrap();
+    let (Some(cnode_phys), Some(uctrl_phys), Some(notif_phys)) = (
+        hal::object::retype(
+            &mut boot,
+            cnode_bytes(SLOTS) as u64,
+            slot_align() as u64,
+            1,
+            hhdm,
+        ),
+        hal::object::retype(&mut boot, un, ua, 1, hhdm),
+        hal::object::retype(&mut boot, nsz, nal, 1, hhdm),
+    ) else {
+        warn!("invoke: bootstrap retype failed");
+        hal::frame::free_frame(ctrl);
+        hal::frame::free_frame(region);
+        return;
+    };
+
+    // The Untyped capability's control block describes the (separate) region.
+    hal::object::store_untyped(
+        uctrl_phys,
+        hhdm,
+        Untyped::new(region.addr(), hal::paging::PAGE),
+    );
+
+    let mut cs = hal::object::cnode_cap_space(cnode_phys, SLOTS, hhdm);
+    let ut_id = cs
+        .insert(Capability::new(
+            ObjectRef::new(ObjectKind::Untyped, uctrl_phys),
+            Rights::ALL,
+        ))
+        .unwrap();
+    let nt_id = cs
+        .insert(Capability::new(
+            ObjectRef::new(ObjectKind::Notification, notif_phys),
+            Rights::ALL,
+        ))
+        .unwrap();
+
+    // 1) Retype a Frame from the Untyped, through invoke.
+    let created = invoke(
+        &mut cs,
+        ut_id,
+        Method::UntypedRetype {
+            kind: ObjectKind::Frame,
+            count: 1,
+            dst: CapId(5),
+        },
+        hhdm,
+    );
+    let frame_phys = match created {
+        Ok(InvokeOk::Created(obj)) => obj.phys,
+        other => {
+            warn!("invoke: retype returned {:?}", other);
+            hal::frame::free_frame(ctrl);
+            hal::frame::free_frame(region);
+            return;
+        }
+    };
+
+    // 2) Identify the new Frame.
+    let identified = invoke(&mut cs, CapId(5), Method::FrameIdentify, hhdm);
+    assert_eq!(identified, Ok(InvokeOk::Phys(frame_phys)));
+
+    // 3) Rights denied: a copy of the Untyped cap without RETYPE cannot retype.
+    cs.copy(ut_id, CapId(6), Rights::WRITE).unwrap();
+    let denied = invoke(
+        &mut cs,
+        CapId(6),
+        Method::UntypedRetype {
+            kind: ObjectKind::Frame,
+            count: 1,
+            dst: CapId(7),
+        },
+        hhdm,
+    );
+    assert_eq!(denied, Err(InvokeError::InsufficientRights));
+
+    // 4) Signal the Notification, then confirm the bits landed.
+    let _ = invoke(
+        &mut cs,
+        nt_id,
+        Method::NotificationSignal { bits: 0b1010 },
+        hhdm,
+    );
+    assert_eq!(
+        hal::object::notification_pending(notif_phys, hhdm) & 0b1010,
+        0b1010
+    );
+
+    info!("invoke: retype->frame, identify, rights-denied, and signal all behaved correctly");
+
+    hal::frame::free_frame(ctrl);
+    hal::frame::free_frame(region);
 }
 
 #[panic_handler]

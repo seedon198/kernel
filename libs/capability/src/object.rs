@@ -125,6 +125,7 @@ const fn align_up(addr: u64, align: u64) -> Option<u64> {
 /// [`base`](Self::base); nothing is freed individually (reclaim the whole
 /// region by revoking it). This type does the arithmetic only — the kernel
 /// zeroes the carved memory when it retypes.
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Untyped {
     base: u64,

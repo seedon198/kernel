@@ -20,6 +20,17 @@ All notable changes are documented here. The format follows
 
 ### M3: Capabilities & IPC
 
+- Capability invocation API (#57): a new pure `capability::invoke` module —
+  `Method` (CNode copy/mint/move/delete, `FrameIdentify`, `UntypedRetype`,
+  `NotificationSignal`), `InvokeOk`/`InvokeError`, and `Method::authorize`
+  (checks the invoked capability's kind and required rights) — host-tested. The
+  kernel's `invoke(cspace, cap, method, hhdm)` resolves the capability,
+  authorizes it, and performs the effect (CNode ops on the cap space; retype
+  via the Untyped control block; notification signal through the HHDM). This is
+  the surface M4's ring-3 `syscall` will call. `kmain` drives it: retype a Frame
+  through `invoke`, identify it, show a rights-denied invocation, and signal a
+  Notification — all verified.
+
 - Core kernel object types & CNode-backed capability space (#56): `capability::
   object` gains per-kind storage layouts (`ObjectKind::fixed_layout`; `Frame`/
   `AddressSpace` = a page, `Endpoint`/`Notification` zeroed state structs) and

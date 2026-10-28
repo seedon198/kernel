@@ -14,9 +14,11 @@
 //! real object handles and stores them in the per-task capability space
 //! (M3, [ADR 0016](../../docs/adr/0016-capability-implementation.md)).
 
+pub mod invoke;
 pub mod object;
 pub mod space;
 
+pub use invoke::{InvokeError, InvokeOk, Method};
 pub use object::{
     cnode_bytes, slot_align, EndpointState, NotificationState, ObjectKind, ObjectRef, Untyped,
 };
