@@ -24,6 +24,7 @@ version = "0.0.1"
 name = "hal"
 version = "0.0.1"
 dependencies = [
+ "capability",
  "frame-alloc",
  "page-table",
 ]
@@ -33,6 +34,7 @@ name = "kernel"
 version = "0.0.1"
 dependencies = [
  "boot-info",
+ "capability",
  "hal",
  "limine",
 ]

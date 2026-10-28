@@ -10,3 +10,4 @@ publish = false
 [dependencies]
 frame-alloc = { path = "../libs/frame-alloc" }
 page-table = { path = "../libs/page-table" }
+capability = { path = "../libs/capability" }
