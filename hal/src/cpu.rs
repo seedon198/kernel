@@ -25,6 +25,25 @@ pub fn disable_interrupts() {
     }
 }
 
+/// Enable maskable interrupts on the current CPU.
+pub fn enable_interrupts() {
+    // SAFETY: `sti` only sets the interrupt flag; it has no memory effects.
+    unsafe {
+        asm!("sti", options(nomem, nostack));
+    }
+}
+
+/// Whether maskable interrupts are currently enabled (RFLAGS.IF).
+#[must_use]
+pub fn interrupts_enabled() -> bool {
+    let flags: u64;
+    // SAFETY: reads RFLAGS via the stack; no lasting memory or flag effects.
+    unsafe {
+        asm!("pushfq", "pop {}", out(reg) flags, options(preserves_flags));
+    }
+    flags & (1 << 9) != 0
+}
+
 /// `CR4.SMEP` — Supervisor Mode Execution Prevention (bit 20).
 const CR4_SMEP: u64 = 1 << 20;
 /// `CR4.SMAP` — Supervisor Mode Access Prevention (bit 21).

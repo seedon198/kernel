@@ -1,10 +1,14 @@
 //! Minimal synchronization primitives.
 //!
-//! For now this is a basic spinlock, sufficient for the single-core kernel of
-//! M0/M1 where interrupts are mostly disabled. Interrupt-safe locking (which
-//! must disable interrupts to avoid deadlocking against a handler on the same
-//! core) and the fuller set of primitives — mutexes, wait queues — arrive with
-//! the scheduler in M4.
+//! For now this is a basic spinlock, sufficient for the single-core kernel.
+//! It is **interrupt-safe**: holding the lock disables interrupts on the local
+//! core (restoring their prior state on release), so a handler cannot preempt a
+//! holder and deadlock re-acquiring the same lock (#62). The fuller set of
+//! primitives — mutexes, wait queues — arrives with the scheduler in M4.
+//!
+//! Lock ordering: locks taken under another lock must sit strictly below it in
+//! a fixed hierarchy. In particular the frame-allocator and page-table locks
+//! are below the heap lock, and code holding them must not allocate.
 
 use core::cell::UnsafeCell;
 use core::ops::{Deref, DerefMut};
@@ -34,7 +38,16 @@ impl<T> SpinLock<T> {
 
     /// Acquire the lock, spinning until it is free. The returned guard releases
     /// the lock when dropped.
+    ///
+    /// Interrupts are disabled on this core for as long as the guard is held
+    /// (and restored to their prior state on drop). This makes the lock safe to
+    /// take in both ordinary and interrupt context: a handler on the same core
+    /// cannot preempt a lock holder and deadlock trying to re-acquire it.
     pub fn lock(&self) -> SpinGuard<'_, T> {
+        // Save-and-disable interrupts *before* acquiring, so that once we hold
+        // the lock no interrupt on this core can run and try to take it.
+        let saved_if = crate::cpu::interrupts_enabled();
+        crate::cpu::disable_interrupts();
         while self
             .locked
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
@@ -46,7 +59,10 @@ impl<T> SpinLock<T> {
                 core::hint::spin_loop();
             }
         }
-        SpinGuard { lock: self }
+        SpinGuard {
+            lock: self,
+            saved_if,
+        }
     }
 }
 
@@ -54,6 +70,8 @@ impl<T> SpinLock<T> {
 /// protected value.
 pub struct SpinGuard<'a, T> {
     lock: &'a SpinLock<T>,
+    /// Whether interrupts were enabled when the lock was taken; restored on drop.
+    saved_if: bool,
 }
 
 impl<T> Deref for SpinGuard<'_, T> {
@@ -76,5 +94,10 @@ impl<T> DerefMut for SpinGuard<'_, T> {
 impl<T> Drop for SpinGuard<'_, T> {
     fn drop(&mut self) {
         self.lock.locked.store(false, Ordering::Release);
+        // Restore the interrupt state we found on acquisition. We only ever
+        // re-enable; we never enable interrupts that were disabled before.
+        if self.saved_if {
+            crate::cpu::enable_interrupts();
+        }
     }
 }
