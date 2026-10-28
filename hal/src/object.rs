@@ -6,7 +6,8 @@
 //! previously occupied that memory (important when an Untyped region is revoked
 //! and reused). See [ADR 0016](../../docs/adr/0016-capability-implementation.md).
 
-use capability::object::Untyped;
+use capability::object::{ObjectRef, Untyped};
+use capability::space::{CapSpace, Slot};
 
 /// Carve `count` objects of `size` bytes each (aligned to `align`) from
 /// `untyped`, **zero** their storage, and return the physical base of the
@@ -27,4 +28,31 @@ pub fn retype(untyped: &mut Untyped, size: u64, align: u64, count: u64, hhdm: u6
         core::ptr::write_bytes(ptr, 0, len);
     }
     Some(base)
+}
+
+/// Form a capability space over a CNode's retyped storage: a `Slot` array at
+/// physical `phys` with `slots` entries, reached through the HHDM.
+///
+/// Each slot is initialized to empty (overwriting the retyped zeros with a
+/// valid `Slot::empty()`, so no possibly-invalid bytes are ever read), then the
+/// slice is handed back as a [`CapSpace`].
+///
+/// The caller must pass a `phys` that is a CNode just retyped for `slots` slots
+/// — so `phys .. phys + slots * size_of::<Slot<ObjectRef>>()` is our RAM, mapped
+/// in the HHDM at `hhdm` and owned exclusively by this CNode — and must not form
+/// a second `CapSpace` aliasing the same storage while this one lives. (A safe
+/// wrapper over internal `unsafe`, like the other HHDM-backed HAL constructors.)
+#[must_use]
+pub fn cnode_cap_space(phys: u64, slots: usize, hhdm: u64) -> CapSpace<'static, ObjectRef> {
+    let ptr = (hhdm + phys) as *mut Slot<ObjectRef>;
+    // SAFETY: per the caller contract above, `ptr .. ptr + slots` is our
+    // exclusively-owned, HHDM-mapped CNode storage. We `write` (not read)
+    // `Slot::empty()` into each entry first, so the slice then references only
+    // initialized, valid `Slot`s and aliases nothing.
+    unsafe {
+        for i in 0..slots {
+            ptr.add(i).write(Slot::empty());
+        }
+        CapSpace::new(core::slice::from_raw_parts_mut(ptr, slots))
+    }
 }

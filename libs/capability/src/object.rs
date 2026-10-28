@@ -8,6 +8,10 @@
 //! (no `unsafe`, host-tested); the HAL zeroes the carved physical memory
 //! through the HHDM when it performs a retype.
 
+use core::mem::{align_of, size_of};
+
+use crate::space::Slot;
+
 /// The kind of a kernel object a capability can name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObjectKind {
@@ -43,6 +47,68 @@ impl ObjectRef {
     pub const fn new(kind: ObjectKind, phys: u64) -> Self {
         Self { kind, phys }
     }
+}
+
+impl ObjectKind {
+    /// The `(size, align)` of the storage a single object of this kind needs,
+    /// for the **fixed-size** kinds. `None` for kinds whose size is not fixed:
+    /// a `CNode` is sized by its slot count ([`cnode_bytes`]), `Untyped` is a
+    /// region rather than a fixed object, and `Thread` lands with M4.
+    #[must_use]
+    pub const fn fixed_layout(self) -> Option<(u64, u64)> {
+        match self {
+            // A Frame is one page; an AddressSpace is a PML4 (also one page).
+            ObjectKind::Frame | ObjectKind::AddressSpace => Some((4096, 4096)),
+            ObjectKind::Endpoint => Some((
+                size_of::<EndpointState>() as u64,
+                align_of::<EndpointState>() as u64,
+            )),
+            ObjectKind::Notification => Some((
+                size_of::<NotificationState>() as u64,
+                align_of::<NotificationState>() as u64,
+            )),
+            ObjectKind::Untyped | ObjectKind::CNode | ObjectKind::Thread => None,
+        }
+    }
+}
+
+/// The storage state of an [`Endpoint`](ObjectKind::Endpoint), living in its
+/// retyped memory. Zeroed on creation; the blocked-thread queues are populated
+/// when synchronous IPC lands (M4). Fields reserved now so the layout is stable.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct EndpointState {
+    /// Head of the queue of threads blocked on this endpoint (0 = empty).
+    pub queue_head: u64,
+    _reserved: [u64; 3],
+}
+
+/// The storage state of a [`Notification`](ObjectKind::Notification).
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NotificationState {
+    /// Accumulated signal word (set bits are pending signals).
+    pub signal: u64,
+    /// Head of the waiter queue (0 = none); populated with M4.
+    pub waiters: u64,
+}
+
+/// Bytes of storage one capability slot occupies in a CNode.
+#[must_use]
+pub const fn slot_bytes() -> usize {
+    size_of::<Slot<ObjectRef>>()
+}
+
+/// Alignment of a CNode's slot storage.
+#[must_use]
+pub const fn slot_align() -> usize {
+    align_of::<Slot<ObjectRef>>()
+}
+
+/// Bytes of storage a CNode of `slots` capability slots needs.
+#[must_use]
+pub const fn cnode_bytes(slots: usize) -> usize {
+    slots * slot_bytes()
 }
 
 /// Round `addr` up to a power-of-two `align`, or `None` on overflow.
@@ -181,5 +247,25 @@ mod tests {
         let r = ObjectRef::new(ObjectKind::Frame, 0x3000);
         assert_eq!(r.kind, ObjectKind::Frame);
         assert_eq!(r.phys, 0x3000);
+    }
+
+    #[test]
+    fn fixed_layouts_are_sane() {
+        assert_eq!(ObjectKind::Frame.fixed_layout(), Some((4096, 4096)));
+        assert_eq!(ObjectKind::AddressSpace.fixed_layout(), Some((4096, 4096)));
+        let (esz, eal) = ObjectKind::Endpoint.fixed_layout().unwrap();
+        assert!(esz > 0 && eal.is_power_of_two());
+        assert!(ObjectKind::Notification.fixed_layout().is_some());
+        // Variable- or not-yet-sized kinds have no fixed layout.
+        assert_eq!(ObjectKind::Untyped.fixed_layout(), None);
+        assert_eq!(ObjectKind::CNode.fixed_layout(), None);
+        assert_eq!(ObjectKind::Thread.fixed_layout(), None);
+    }
+
+    #[test]
+    fn cnode_bytes_scales_with_slots() {
+        assert_eq!(cnode_bytes(0), 0);
+        assert_eq!(cnode_bytes(16), 16 * slot_bytes());
+        assert!(slot_align().is_power_of_two());
     }
 }

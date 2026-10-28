@@ -17,7 +17,9 @@
 pub mod object;
 pub mod space;
 
-pub use object::{ObjectKind, ObjectRef, Untyped};
+pub use object::{
+    cnode_bytes, slot_align, EndpointState, NotificationState, ObjectKind, ObjectRef, Untyped,
+};
 pub use space::{CapError, CapId, CapSpace, Slot};
 
 /// A set of rights a capability carries, as bit flags.
