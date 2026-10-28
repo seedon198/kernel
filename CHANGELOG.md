@@ -6,6 +6,14 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-28
+
+M2: memory & isolation. The kernel takes full control of physical and virtual
+memory and enforces hardware hardening — its own frame allocator and page
+tables, W^X/NX (including a non-executable physmap), SMEP/SMAP, kernel KASLR,
+stack guard pages, zeroed-on-allocation frames, a growable kernel heap, and
+legible page-fault diagnostics.
+
 ### M2: Memory & isolation
 
 - Documentation (#43): `docs/architecture/memory-management.md` describes the
@@ -178,5 +186,6 @@ that reaches the kernel and prints over serial in QEMU.
   runs it for both BIOS and UEFI (BIOS boot is now covered on Linux runners).
   Serial logs are uploaded as artifacts. **M0 complete.**
 
+[0.2.0]: https://github.com/seedon198/kernel/releases/tag/v0.2.0
 [0.1.0]: https://github.com/seedon198/kernel/releases/tag/v0.1.0
 [0.0.1]: https://github.com/seedon198/kernel/releases/tag/v0.0.1
