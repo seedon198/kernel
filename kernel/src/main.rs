@@ -137,6 +137,10 @@ fn kmain(boot_info: &BootInfo) -> ! {
     // recoverable-probe + classification path.
     init_fault_diagnostics(boot_info);
 
+    // Untyped memory & retype (M3, #55): demonstrate carving object storage
+    // from an Untyped region with watermark accounting.
+    demo_untyped(boot_info);
+
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
     debug!("triggering a test breakpoint (#BP)...");
@@ -411,6 +415,42 @@ fn init_fault_diagnostics(boot_info: &BootInfo) {
             classify(addr).unwrap_or("unmapped/unknown")
         );
     }
+}
+
+/// Demonstrate Untyped retype (#55): take one frame as a small Untyped region,
+/// carve object storage from it with watermark accounting, and show that an
+/// over-budget request is rejected.
+fn demo_untyped(boot_info: &BootInfo) {
+    use capability::Untyped;
+
+    let Some(frame) = hal::frame::alloc_frame() else {
+        warn!("untyped: no frame for the demo");
+        return;
+    };
+    let hhdm = boot_info.hhdm_offset;
+    let mut ut = Untyped::new(frame.addr(), hal::paging::PAGE); // 4 KiB region
+
+    // Carve 8 objects of 256 bytes, 64-byte aligned, and zero them.
+    match hal::object::retype(&mut ut, 256, 64, 8, hhdm) {
+        Some(base) => info!(
+            "untyped: retyped 8x256B at {:#x}; {} B used, {} B free of {}",
+            base,
+            ut.watermark() - ut.base(),
+            ut.free(),
+            ut.size()
+        ),
+        None => warn!("untyped: retype failed unexpectedly"),
+    }
+
+    // An over-budget request (a whole 4 KiB object) must be rejected, leaving
+    // the watermark untouched.
+    let before = ut.free();
+    let rejected = hal::object::retype(&mut ut, hal::paging::PAGE, hal::paging::PAGE, 1, hhdm);
+    assert!(rejected.is_none(), "over-budget retype should fail");
+    assert_eq!(ut.free(), before, "failed retype must not consume space");
+    info!("untyped: over-budget retype correctly rejected; accounting intact");
+
+    hal::frame::free_frame(frame);
 }
 
 #[panic_handler]

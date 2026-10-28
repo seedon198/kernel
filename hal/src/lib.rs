@@ -23,6 +23,7 @@ pub mod gdt;
 pub mod heap;
 pub mod idt;
 pub mod io;
+pub mod object;
 pub mod paging;
 pub mod serial;
 pub mod sync;

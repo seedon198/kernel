@@ -12,8 +12,22 @@ All notable changes are documented here. The format follows
   base moved below the top-2-GiB KASLR window (to `0xffffff8000000000`) and heap
   growth is now capped at the window start, so the heap can never overlap the
   slid kernel image by construction.
+- SpinLock is now interrupt-safe (#62): holding a lock disables interrupts on
+  the local core and restores the prior state on release, so an interrupt
+  handler cannot preempt a holder and deadlock re-acquiring it. The lock-order
+  discipline (frame/page-table locks below the heap lock) is documented in
+  `hal::sync`.
 
 ### M3: Capabilities & IPC
+
+- Untyped memory & retype (#55): a new `capability::object` module (pure,
+  host-tested) adds `ObjectKind`, `ObjectRef { kind, phys }` (the kernel's
+  object handle), and `Untyped` — a physical region with a bump watermark whose
+  `allocate` carves naturally-aligned, fixed-size object storage (checked for
+  alignment, overflow, and exhaustion; reclaim is whole-region only, per
+  ADR 0016). `hal::object::retype` carves from an `Untyped` and **zeroes** the
+  storage through the HHDM. `kmain` demonstrates a retype and that an
+  over-budget request is rejected with accounting intact.
 
 - Per-task capability space (#54): a `CapSpace` in the `capability` crate — a
   flat table of capability slots (`CapId` = index, O(1) lookup) over
