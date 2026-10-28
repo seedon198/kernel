@@ -8,6 +8,19 @@ All notable changes are documented here. The format follows
 
 ### M4: Scheduling & userspace
 
+- Ring 3 + the syscall boundary (#79), per
+  [ADR 0017](docs/adr/0017-threads-and-scheduling.md). `hal::syscall` programs
+  `EFER.SCE`/`STAR`/`LSTAR`/`FMASK`, provides the `syscall` entry stub (switch to
+  a kernel stack, build the args, dispatch, `sysret`) and `enter_user` (first
+  drop to ring 3 via `iretq`); `hal::context::resume` hands control back to a
+  saved thread one-way. The message-register ABI is the pure `capability::abi`
+  (`MessageInfo`: label/length/caps, host-tested). `kmain` maps a tiny user stub
+  (R-X user) and stack (RW+NX user), enters ring 3, and the stub `syscall`s in
+  and out — the kernel decodes the message and returns to the boot thread.
+  Verified in QEMU. Also a paging fix: `map` now upgrades an existing
+  intermediate table's USER/WRITABLE bits when a user mapping reuses it (U/S and
+  R/W are cumulative across levels).
+
 - Threads, context switch, and a cooperative round-robin scheduler (#78), per
   [ADR 0017](docs/adr/0017-threads-and-scheduling.md). A new pure `sched` crate
   (`#![forbid(unsafe_code)]`, host-tested) is the round-robin policy — a ready

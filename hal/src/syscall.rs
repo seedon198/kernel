@@ -1,0 +1,212 @@
+//! The user→kernel system-call boundary and first ring-3 entry.
+//!
+//! Uses the `syscall`/`sysret` fast path: [`init`] programs the MSRs
+//! (`EFER.SCE`, `STAR`, `LSTAR`, `FMASK`), [`syscall_entry`] is the kernel entry
+//! stub, and [`enter_user`] drops to ring 3 for the first time via `iretq`. The
+//! message-register ABI is [`capability::abi`]: `rdi` = invoked capability id,
+//! `rsi` = packed `MessageInfo`, `rdx`/`r8`/`r9`/`r10` = message registers 0–3
+//! (`rcx`/`r11` are reserved by the CPU for the return RIP/RFLAGS); `rax`
+//! returns a status word.
+//!
+//! The entry stub switches to a dedicated kernel stack (single-core bring-up; a
+//! per-CPU/GS scheme comes with SMP). A registered kernel [`Handler`] does the
+//! work. See [ADR 0017](../../docs/adr/0017-threads-and-scheduling.md).
+
+use core::arch::{asm, global_asm};
+use core::sync::atomic::{AtomicPtr, AtomicU64, Ordering};
+
+use crate::cell::Racy;
+
+const IA32_EFER: u32 = 0xC000_0080;
+const IA32_STAR: u32 = 0xC000_0081;
+const IA32_LSTAR: u32 = 0xC000_0082;
+const IA32_FMASK: u32 = 0xC000_0084;
+const EFER_SCE: u64 = 1 << 0;
+
+/// `STAR`: `syscall` loads kernel CS 0x08 / SS 0x10; the sysret base 0x18 yields
+/// user CS 0x28|3 and SS 0x20|3 (the GDT in `hal::gdt` is ordered for this).
+const STAR_VALUE: u64 = (0x08u64 << 32) | (0x18u64 << 48);
+/// Clear on syscall entry: IF (no interrupts in the stub), TF, DF, AC.
+const FMASK_VALUE: u64 = 0x200 | 0x100 | 0x400 | 0x4_0000;
+
+/// Raw system-call arguments, as the entry stub lays them out.
+#[repr(C)]
+pub struct SyscallArgs {
+    /// Invoked capability id (`rdi`).
+    pub cap: u64,
+    /// Packed `MessageInfo` (`rsi`).
+    pub msg_info: u64,
+    /// Message registers 0–3 (`rdx`, `r8`, `r9`, `r10`).
+    pub mr: [u64; 4],
+}
+
+/// A fresh ring-3 entry: where to start and the initial message.
+#[repr(C)]
+pub struct UserEntry {
+    /// User instruction pointer.
+    pub rip: u64,
+    /// User stack pointer.
+    pub rsp: u64,
+    /// Invoked capability id placed in `rdi`.
+    pub cap: u64,
+    /// Packed `MessageInfo` placed in `rsi`.
+    pub msg_info: u64,
+    /// Message registers 0–3 placed in `rdx`/`r8`/`r9`/`r10`.
+    pub mr: [u64; 4],
+}
+
+/// A kernel system-call handler: given the arguments, returns a status word
+/// (delivered to the caller in `rax`).
+pub type Handler = fn(&SyscallArgs) -> u64;
+
+static HANDLER: AtomicPtr<()> = AtomicPtr::new(core::ptr::null_mut());
+
+/// Dedicated kernel stack for the syscall entry stub (single-core bring-up).
+#[repr(C, align(16))]
+struct KStack([u8; 16 * 1024]);
+static SYSCALL_KSTACK: Racy<KStack> = Racy::new(KStack([0; 16 * 1024]));
+
+/// Top of the syscall kernel stack; read by the entry stub. (`no_mangle` so the
+/// assembly can reach it by name.)
+#[unsafe(no_mangle)]
+static SYSCALL_KSTACK_TOP: AtomicU64 = AtomicU64::new(0);
+/// Scratch slot where the entry stub parks the user `rsp` across a call.
+#[unsafe(no_mangle)]
+static SYSCALL_USER_RSP: AtomicU64 = AtomicU64::new(0);
+
+/// Register the kernel's system-call handler. Call before entering ring 3.
+pub fn register(handler: Handler) {
+    HANDLER.store(handler as *mut (), Ordering::Release);
+}
+
+/// Program the syscall MSRs and the kernel stack top. Call once, after the GDT
+/// and TSS are installed.
+pub fn init() {
+    let top = {
+        let p = SYSCALL_KSTACK.get() as u64;
+        (p + core::mem::size_of::<KStack>() as u64) & !0xf
+    };
+    SYSCALL_KSTACK_TOP.store(top, Ordering::Relaxed);
+
+    let efer = rdmsr(IA32_EFER);
+    // SAFETY: enabling SCE only turns on the `syscall`/`sysret` instructions;
+    // STAR/LSTAR/FMASK then define a valid kernel entry per the GDT layout.
+    unsafe {
+        wrmsr(IA32_EFER, efer | EFER_SCE);
+        wrmsr(IA32_STAR, STAR_VALUE);
+        wrmsr(IA32_LSTAR, syscall_entry as *const () as u64);
+        wrmsr(IA32_FMASK, FMASK_VALUE);
+    }
+}
+
+/// Drop to ring 3 for the first time, saving the current (kernel) context into
+/// `save_rsp_to` so a later [`crate::context::resume`] of it returns here.
+///
+/// The caller provides a valid user code/stack mapping in `entry`; returns when
+/// something resumes the saved context.
+pub fn enter_user(save: &crate::context::Context, entry: &UserEntry) {
+    // SAFETY: `save` provides a writable slot for the saved stack pointer, and
+    // `entry` describes a mapped, user-accessible code page and stack. The asm
+    // saves our callee-saved frame and `iretq`s to ring 3; control returns here
+    // when the saved context is `resume`d.
+    unsafe { enter_user_asm(save.save_ptr(), entry as *const UserEntry) }
+}
+
+/// The Rust trampoline the entry stub calls: dispatch to the registered handler.
+#[unsafe(no_mangle)]
+extern "C" fn syscall_dispatch(args: *const SyscallArgs) -> u64 {
+    let raw = HANDLER.load(Ordering::Acquire);
+    if raw.is_null() {
+        return u64::MAX;
+    }
+    // SAFETY: `raw` is a `Handler` fn pointer stored by `register`, and `args`
+    // points at the `SyscallArgs` the entry stub built on the kernel stack.
+    unsafe {
+        let handler: Handler = core::mem::transmute(raw);
+        handler(&*args)
+    }
+}
+
+fn rdmsr(msr: u32) -> u64 {
+    let (hi, lo): (u32, u32);
+    // SAFETY: a side-effect-free MSR read; these MSRs exist on x86-64.
+    unsafe {
+        asm!("rdmsr", in("ecx") msr, out("edx") hi, out("eax") lo,
+             options(nomem, nostack, preserves_flags));
+    }
+    ((hi as u64) << 32) | (lo as u64)
+}
+
+/// # Safety
+/// `msr`/`value` must be valid to write.
+unsafe fn wrmsr(msr: u32, value: u64) {
+    let (hi, lo) = ((value >> 32) as u32, value as u32);
+    // SAFETY: guaranteed by the caller.
+    unsafe {
+        asm!("wrmsr", in("ecx") msr, in("edx") hi, in("eax") lo,
+             options(nostack, preserves_flags));
+    }
+}
+
+extern "C" {
+    fn syscall_entry();
+    fn enter_user_asm(save_rsp_to: *mut u64, entry: *const UserEntry);
+}
+
+// The syscall entry stub (LSTAR target). `syscall` leaves the user rsp in rsp
+// (it does not switch stacks), the return RIP in rcx, and RFLAGS in r11. We park
+// the user rsp, switch to the kernel stack, build a `SyscallArgs` on it, call the
+// dispatcher, then restore and `sysretq`. Message ABI: rdi=cap, rsi=msg_info,
+// rdx/r8/r9/r10 = mr0..3; rax = status out.
+//
+// enter_user_asm saves the current callee-saved frame (so `resume` can return
+// here) and `iretq`s to ring 3 with the message registers loaded. User
+// selectors: CS 0x2b, SS 0x23 (see hal::gdt).
+global_asm!(
+    ".global syscall_entry",
+    ".p2align 4",
+    "syscall_entry:",
+    "    mov [rip + SYSCALL_USER_RSP], rsp",
+    "    mov rsp, [rip + SYSCALL_KSTACK_TOP]",
+    "    push rcx", // user RIP
+    "    push r11", // user RFLAGS
+    "    push r10", // mr3
+    "    push r9",  // mr2
+    "    push r8",  // mr1
+    "    push rdx", // mr0
+    "    push rsi", // msg_info
+    "    push rdi", // cap  -> rsp = &SyscallArgs
+    "    mov rdi, rsp",
+    "    call syscall_dispatch",
+    "    add rsp, 48", // pop the six SyscallArgs words (rax holds status)
+    "    pop r11",
+    "    pop rcx",
+    "    mov rsp, [rip + SYSCALL_USER_RSP]",
+    "    sysretq",
+    //
+    ".global enter_user_asm",
+    ".p2align 4",
+    "enter_user_asm:",
+    "    push rbp",
+    "    push rbx",
+    "    push r12",
+    "    push r13",
+    "    push r14",
+    "    push r15",
+    "    mov [rdi], rsp",      // save boot context
+    "    mov r11, rsi",        // UserEntry*
+    "    mov rax, [r11 + 0]",  // rip
+    "    mov rbx, [r11 + 8]",  // rsp
+    "    mov rdi, [r11 + 16]", // cap
+    "    mov rsi, [r11 + 24]", // msg_info
+    "    mov rdx, [r11 + 32]", // mr0
+    "    mov r8,  [r11 + 40]", // mr1
+    "    mov r9,  [r11 + 48]", // mr2
+    "    mov r10, [r11 + 56]", // mr3
+    "    push 0x23",           // user SS
+    "    push rbx",            // user RSP
+    "    push 0x202",          // RFLAGS (IF set)
+    "    push 0x2b",           // user CS
+    "    push rax",            // user RIP
+    "    iretq",
+);

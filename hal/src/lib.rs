@@ -28,3 +28,4 @@ pub mod object;
 pub mod paging;
 pub mod serial;
 pub mod sync;
+pub mod syscall;
