@@ -2,8 +2,8 @@
 
 # kernel
 
-**A from-scratch, security-focused operating system for x86-64 — a hardened
-Rust microkernel with native offensive-security tooling.**
+**A from-scratch, security-focused x86-64 microkernel in Rust — hardened and
+capability-based, built to grow into a native security platform.**
 
 [![CI](https://github.com/seedon198/kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/seedon198/kernel/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -16,26 +16,34 @@ Rust microkernel with native offensive-security tooling.**
 ---
 
 > [!WARNING]
-> **Planning / bootstrap phase.** There is no bootable image yet. This is an
-> educational OS for authorized security research and testing. See the
-> [Roadmap](docs/roadmap.md) and [milestones](https://github.com/seedon198/kernel/milestones).
+> **Early development — the kernel, not yet a full OS.** The kernel boots on
+> x86-64 (UEFI + BIOS) in QEMU and installs its own CPU tables, fault handling,
+> and physical memory management (as of
+> [v0.1.0](https://github.com/seedon198/kernel/releases/tag/v0.1.0); milestones
+> M0–M1). User space, the capability system, and the security tooling are still
+> ahead. See the [Roadmap](docs/roadmap.md) and
+> [milestones](https://github.com/seedon198/kernel/milestones). For authorized
+> security research and testing.
 
 ## What this is
 
-A clean-slate operating system with two linked goals:
+A clean-slate, security-focused **x86-64 microkernel**, written from scratch in
+Rust. The kernel is the foundation; the longer-term aim is to grow a full
+security/pentesting OS around it. Two goals drive the design:
 
 1. **Hardened by construction.** A **microkernel** written in **Rust**: the
    privileged core is tiny, memory-safe, and holds no `unsafe` code outside a
    small audited hardware layer. Drivers, the network stack, and filesystems
-   run as isolated, least-privilege user-space servers, so a bug in a parser
-   cannot compromise the kernel.
-2. **A native security platform.** The system is built to *do* security work —
-   raw packet access, sniffing, scanning, fuzzing — through **native tools**
-   driven by an **embedded scripting runtime**, so you can write and run
-   tooling without rebuilding the OS.
+   are designed to run as isolated, least-privilege user-space servers, so a
+   bug in a parser cannot compromise the kernel.
+2. **A native security platform (the goal).** The system is being built to
+   *do* security work — raw packet access, sniffing, scanning, fuzzing —
+   through **native tools** driven by an **embedded scripting runtime**, so you
+   can write and run tooling without rebuilding the OS. This layer is future
+   work (milestone M7); see the roadmap.
 
-It targets **generic modern x86-64 PCs** and boots from USB on real hardware,
-as well as in QEMU.
+It targets **generic modern x86-64 PCs**; booting from USB on real hardware is
+a design goal, and today it runs in QEMU (UEFI + BIOS).
 
 > This project is for **authorized** security testing, research and education.
 > See [SECURITY.md](SECURITY.md) and the [threat model](docs/architecture/threat-model.md).
