@@ -8,6 +8,18 @@ All notable changes are documented here. The format follows
 
 ### M2: Memory & isolation
 
+- Page-fault diagnostics (#42), per
+  [ADR 0014](docs/adr/0014-page-fault-diagnostics.md): the #PF handler now
+  decodes the error code into a plain-language cause (not-present vs protection
+  violation, read/write/instruction-fetch, user/supervisor) using a new
+  host-tested `PageFaultError` in the `page-table` crate, and names the region
+  `CR2` landed in via a `hal::fault` registry (kernel sections, HHDM, heap,
+  stack guards — narrowest match wins, so a guard page is reported as such). A
+  recoverable `probe_read` (a one-entry exception table) lets code touch a
+  possibly-unmapped address without crashing — the handler recognizes the probe
+  and resumes at a fixup — which `kmain` uses to verify a stack guard faults and
+  recovers while mapped memory reads cleanly. This is the seed of the
+  fault-tolerant accessors user-memory access will need (M4).
 - SMEP/SMAP, guard pages, and the kernel heap (#41), per
   [ADR 0013](docs/adr/0013-kernel-heap.md):
   - **SMEP/SMAP** are enabled in `CR4` where CPUID reports them, blocking the
