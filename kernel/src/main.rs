@@ -33,9 +33,17 @@ static KERNEL_SPACE: SpinLock<Option<AddressSpace>> = SpinLock::new(None);
 #[global_allocator]
 static HEAP: hal::heap::KernelHeap = hal::heap::KernelHeap::new();
 
-/// Virtual base of the kernel heap window — in the top 2 GiB, clear of the
-/// kernel image at `0xffffffff80000000`.
-const HEAP_BASE: u64 = 0xffff_ffff_9000_0000;
+/// Virtual base of the kernel heap window. Deliberately placed *below* the
+/// KASLR window (the top 2 GiB, from [`HEAP_LIMIT`]): Limine always loads the
+/// kernel image at or above `0xffffffff80000000`, so a heap region that lives
+/// below that and is capped there can never collide with the slid kernel image,
+/// however KASLR places it (#61). This base is in the lower part of the kernel's
+/// PML4 slot, which the bootloader leaves unused.
+const HEAP_BASE: u64 = 0xffff_ff80_0000_0000;
+/// Upper bound of the heap window: the start of the kernel/KASLR top-2-GiB
+/// region. The heap never grows into or past this, keeping it clear of the
+/// kernel image. (Leaves ~510 GiB of heap space — ample.)
+const HEAP_LIMIT: u64 = 0xffff_ffff_8000_0000;
 /// Minimum bytes mapped per growth (64 frames).
 const HEAP_CHUNK: u64 = 256 * 1024;
 /// Next unmapped heap virtual address; grows contiguously upward.
@@ -308,6 +316,12 @@ fn heap_grow(min_bytes: usize) -> Option<(usize, usize)> {
     let pages = want.div_ceil(hal::paging::PAGE);
     let size = pages * hal::paging::PAGE;
     let base = HEAP_NEXT.load(Ordering::Relaxed);
+
+    // Never grow into the kernel/KASLR window (#61): the heap stays strictly
+    // below it, so it can never overlap the slid kernel image.
+    if base + size > HEAP_LIMIT {
+        return None;
+    }
 
     let mut guard = KERNEL_SPACE.lock();
     let aspace = guard.as_mut()?;

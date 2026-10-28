@@ -6,6 +6,13 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Kernel heap could collide with the KASLR-slid kernel image (#61): the heap
+  base moved below the top-2-GiB KASLR window (to `0xffffff8000000000`) and heap
+  growth is now capped at the window start, so the heap can never overlap the
+  slid kernel image by construction.
+
 ### M3: Capabilities & IPC
 
 - Per-task capability space (#54): a `CapSpace` in the `capability` crate — a
