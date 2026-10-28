@@ -22,7 +22,7 @@ if [[ ! -f "$ISO" ]]; then
     exit 1
 fi
 
-qemu_args=(-M q35 -m 256M -cdrom "$ISO" -serial "file:$LOG" -display none -no-reboot)
+qemu_args=(-M q35 -cpu qemu64,+smep,+smap -m 256M -cdrom "$ISO" -serial "file:$LOG" -display none -no-reboot)
 
 case "$MODE" in
     bios)

@@ -8,6 +8,19 @@ All notable changes are documented here. The format follows
 
 ### M2: Memory & isolation
 
+- SMEP/SMAP, guard pages, and the kernel heap (#41), per
+  [ADR 0013](docs/adr/0013-kernel-heap.md):
+  - **SMEP/SMAP** are enabled in `CR4` where CPUID reports them, blocking the
+    kernel from executing or reading user-accessible pages (safe now — no user
+    mappings exist). The QEMU test VM runs `-cpu qemu64,+smep,+smap`.
+  - **Stack guard pages**: each HAL-owned stack (the #DF/NMI/#MC IST stacks and
+    `rsp0`) gets a page-aligned guard below it that the kernel unmaps, so an
+    overflow faults instead of corrupting its neighbor.
+  - **Kernel heap**: a hand-rolled, growable first-fit free-list allocator
+    (`hal::heap`, zero dependencies) wired to `GlobalAlloc`, so `Box`/`Vec`/
+    `String` work. Freeing coalesces adjacent blocks; when exhausted it maps
+    more frames (RW+NX) on demand via a kernel-supplied grow hook. Verified in
+    `kmain` by a self-test that forces a growth and checks full reclamation.
 - W^X + NX enforcement (#40): the kernel now sets and verifies its own memory
   permissions, per [ADR 0012](docs/adr/0012-wx-nx-enforcement.md). `EFER.NXE` is
   enabled; the kernel image is repermissioned per section from linker symbols

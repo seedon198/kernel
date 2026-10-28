@@ -90,25 +90,57 @@ static GDT: Racy<Gdt> = Racy::new(Gdt {
 
 static TSS: Racy<Tss> = Racy::new(Tss::empty());
 
-/// Backing memory for the dedicated stacks. 16-byte aligned so each stack top is
-/// correctly aligned for the SysV ABI.
-#[repr(C, align(16))]
+/// One 4 KiB page, the unit of a guard page.
+const PAGE: usize = 4096;
+
+/// Backing memory for the dedicated stacks. Page-aligned, and each stack is
+/// preceded by a one-page **guard** that [`guard_pages`] hands to the memory
+/// manager to unmap (#41): because stacks grow downward, an overflow runs off
+/// the bottom into the (unmapped) guard and faults instead of silently
+/// corrupting whatever lies below.
+#[repr(C, align(4096))]
 struct Stacks {
+    guard_df: [u8; PAGE],
     double_fault: [u8; STACK_SIZE],
+    guard_nmi: [u8; PAGE],
     nmi: [u8; STACK_SIZE],
+    guard_mc: [u8; PAGE],
     machine_check: [u8; STACK_SIZE],
+    guard_k: [u8; PAGE],
     kernel: [u8; STACK_SIZE],
 }
 static STACKS: Racy<Stacks> = Racy::new(Stacks {
+    guard_df: [0; PAGE],
     double_fault: [0; STACK_SIZE],
+    guard_nmi: [0; PAGE],
     nmi: [0; STACK_SIZE],
+    guard_mc: [0; PAGE],
     machine_check: [0; STACK_SIZE],
+    guard_k: [0; PAGE],
     kernel: [0; STACK_SIZE],
 });
 
 /// Top (highest address) of a stack buffer; stacks grow downward.
 fn stack_top(buf: &[u8; STACK_SIZE]) -> u64 {
     buf.as_ptr() as u64 + STACK_SIZE as u64
+}
+
+/// Virtual addresses of the four stack guard pages (page-aligned). The memory
+/// manager unmaps these so a stack overflow faults on the guard (#41).
+#[must_use]
+pub fn guard_pages() -> [u64; 4] {
+    use core::ptr::addr_of;
+    let s = STACKS.get();
+    // SAFETY: `STACKS` is a live static; we only read the addresses of its
+    // (page-aligned) guard fields, never their contents.
+    unsafe {
+        [
+            addr_of!((*s).guard_df) as u64,
+            addr_of!((*s).guard_nmi) as u64,
+            addr_of!((*s).guard_mc) as u64,
+            addr_of!((*s).guard_k) as u64,
+        ]
+    }
 }
 
 /// Encode a 16-byte TSS system descriptor (type = available 64-bit TSS).

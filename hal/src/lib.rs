@@ -19,6 +19,7 @@ mod font;
 pub mod frame;
 pub mod framebuffer;
 pub mod gdt;
+pub mod heap;
 pub mod idt;
 pub mod io;
 pub mod paging;

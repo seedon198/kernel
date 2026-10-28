@@ -245,6 +245,10 @@ fn boot(opts: &[String], debug: bool) -> ! {
     let mut qargs: Vec<String> = [
         "-M",
         "q35",
+        // Expose SMEP/SMAP (absent from the default qemu64) so the kernel's
+        // supervisor-access protections are actually enabled and exercised.
+        "-cpu",
+        "qemu64,+smep,+smap",
         "-m",
         "256M",
         "-cdrom",
