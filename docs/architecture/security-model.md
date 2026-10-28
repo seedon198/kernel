@@ -1,9 +1,14 @@
 # Security Model
 
-> Status: **design**. Finalized in milestone M3 ([ADR 0006](../adr/0006-security-model.md)).
+> Status: the **model is implemented in milestone M3**
+> ([ADR 0006](../adr/0006-security-model.md), [ADR 0016](../adr/0016-capability-implementation.md));
+> see [capabilities.md](capabilities.md) for how. Blocking IPC and the ring-3
+> `syscall` entry land in M4 (they need threads).
 
 The system is built around **capabilities** and **least privilege**. This page
-describes the model we are building toward.
+describes the model; [capabilities.md](capabilities.md) describes the
+implementation (the cap algebra, cap space, Untyped/retype, object kinds, and
+the invocation API).
 
 ## Principles
 

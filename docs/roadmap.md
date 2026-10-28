@@ -48,13 +48,17 @@ See [architecture/memory-management.md](architecture/memory-management.md).
 
 ## M3: Capabilities & IPC
 
-*The microkernel's heart. See [security model](architecture/security-model.md).*
+*The microkernel's heart. See [security model](architecture/security-model.md)
+and [capabilities.md](architecture/capabilities.md).*
 
-- [ ] Capability object model (unforgeable handles, rights, derivation)
-- [ ] Per-task capability space; no ambient authority
-- [ ] Synchronous IPC (message + capability transfer) between tasks
-- [ ] The minimal syscall surface (invoke a capability; everything else is IPC)
-- [ ] ADR finalizing the capability/IPC design
+- [x] Capability object model (unforgeable handles, rights, derivation)
+- [x] Per-task capability space; no ambient authority (flat table / CNode)
+- [x] Untyped memory & retype; core object kinds
+- [x] Capability invocation API (rights-checked `invoke`)
+- [x] ADR finalizing the capability design ([ADR 0016](adr/0016-capability-implementation.md))
+
+Synchronous IPC (blocking `Endpoint` send/receive/call) and the ring-3
+`syscall` entry need threads/userspace and are part of **M4**.
 
 ## M4: Scheduling & userspace
 
