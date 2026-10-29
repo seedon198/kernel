@@ -16,7 +16,7 @@ capability-based, built to grow into a native security platform.**
 ---
 
 > [!WARNING]
-> **Early development — the kernel, not yet a full OS.** The kernel boots on
+> **Early development secure kernel.** The kernel boots on
 > x86-64 (UEFI + BIOS) in QEMU and installs its own CPU tables, fault handling,
 > and physical memory management (as of
 > [v0.1.0](https://github.com/seedon198/kernel/releases/tag/v0.1.0); milestones
