@@ -17,6 +17,18 @@ pub fn halt_loop() -> ! {
     }
 }
 
+/// Halt the logical CPU until the next interrupt, once.
+///
+/// With interrupts enabled this idles until the next IRQ (e.g. a timer tick,
+/// which may preempt the caller) and then returns. With interrupts disabled it
+/// waits for an NMI/SMI; callers that want to idle must enable them first.
+pub fn halt() {
+    // SAFETY: as in `halt_loop` — `hlt` only pauses until the next interrupt.
+    unsafe {
+        asm!("hlt", options(nomem, nostack, preserves_flags));
+    }
+}
+
 /// Disable maskable interrupts on the current CPU.
 pub fn disable_interrupts() {
     // SAFETY: `cli` only clears the interrupt flag; it has no memory effects.
@@ -42,6 +54,54 @@ pub fn interrupts_enabled() -> bool {
         asm!("pushfq", "pop {}", out(reg) flags, options(preserves_flags));
     }
     flags & (1 << 9) != 0
+}
+
+/// Run `f` with maskable interrupts disabled on this core, then restore the
+/// interrupt flag to what it was on entry (never enabling interrupts that were
+/// already disabled).
+///
+/// Used for critical sections that are not a single lock — e.g. picking the
+/// next thread and switching to it, which must not be split by a timer
+/// preemption. A context switch inside `f` is fine: each thread restores its
+/// own saved flag when it eventually returns from here.
+pub fn without_interrupts<R>(f: impl FnOnce() -> R) -> R {
+    let saved_if = interrupts_enabled();
+    disable_interrupts();
+    let result = f();
+    if saved_if {
+        enable_interrupts();
+    }
+    result
+}
+
+/// Read model-specific register `msr`.
+///
+/// Callers pass only architectural MSRs that exist on every x86-64 CPU we
+/// support (reading an unimplemented MSR raises `#GP`).
+pub(crate) fn rdmsr(msr: u32) -> u64 {
+    let (hi, lo): (u32, u32);
+    // SAFETY: a side-effect-free MSR read; callers pass only MSRs that exist
+    // on x86-64 (see the contract above).
+    unsafe {
+        asm!("rdmsr", in("ecx") msr, out("edx") hi, out("eax") lo,
+             options(nomem, nostack, preserves_flags));
+    }
+    (u64::from(hi) << 32) | u64::from(lo)
+}
+
+/// Write `value` to model-specific register `msr`.
+///
+/// # Safety
+/// `msr`/`value` must be valid to write, and the resulting CPU configuration
+/// must keep the kernel running correctly.
+pub(crate) unsafe fn wrmsr(msr: u32, value: u64) {
+    // Deliberate truncation: WRMSR takes the value split into EDX:EAX.
+    let (hi, lo) = ((value >> 32) as u32, value as u32);
+    // SAFETY: guaranteed by the caller.
+    unsafe {
+        asm!("wrmsr", in("ecx") msr, in("edx") hi, in("eax") lo,
+             options(nostack, preserves_flags));
+    }
 }
 
 /// `CR4.SMEP` — Supervisor Mode Execution Prevention (bit 20).

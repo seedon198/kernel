@@ -62,7 +62,7 @@ Synchronous IPC (blocking `Endpoint` send/receive/call) and the ring-3
 
 ## M4: Scheduling & userspace
 
-- [ ] Threads, context switch, preemptive scheduler (LAPIC timer)
+- [x] Threads, context switch, preemptive scheduler (LAPIC timer)
 - [ ] Ring 3 entry/return (`syscall`/`sysret`) with SMEP/SMAP
 - [ ] First user task running under a restricted capability set
 

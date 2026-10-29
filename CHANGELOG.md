@@ -8,6 +8,22 @@ All notable changes are documented here. The format follows
 
 ### M4: Scheduling & userspace
 
+- Preemptive scheduling via the LAPIC timer (#80), per
+  [ADR 0017](docs/adr/0017-threads-and-scheduling.md). `hal::pic` remaps the
+  legacy 8259s to `0x20`–`0x2F` and masks them; `hal::lapic` maps the xAPIC
+  register page uncached at a dedicated kernel VA, enables the APIC (spurious
+  vector `0xFF`), calibrates its timer against PIT channel 2 (`hal::pit`, a
+  polled 10 ms one-shot), and runs it periodic at 100 Hz on vector `0x30`. The
+  kernel's timer handler EOIs and switches to the next round-robin thread;
+  fresh threads start with interrupts enabled (`hal::context` `thread_start`
+  trampoline), and `yield_now`/thread exit keep interrupts off from picking the
+  next thread through the switch (`hal::cpu::without_interrupts`). `kmain` runs
+  two kernel threads that never yield and both make interleaved progress,
+  verified in QEMU (UEFI + BIOS), plus a 1 kHz lock-contention stress run with
+  no deadlock. Ring 3 is not preempted yet (needs per-thread kernel stacks,
+  #82). The interrupt-safety rules are documented in
+  `docs/architecture/interrupts.md`.
+
 - Ring 3 + the syscall boundary (#79), per
   [ADR 0017](docs/adr/0017-threads-and-scheduling.md). `hal::syscall` programs
   `EFER.SCE`/`STAR`/`LSTAR`/`FMASK`, provides the `syscall` entry stub (switch to

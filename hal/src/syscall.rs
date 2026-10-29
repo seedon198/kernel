@@ -12,10 +12,11 @@
 //! per-CPU/GS scheme comes with SMP). A registered kernel [`Handler`] does the
 //! work. See [ADR 0017](../../docs/adr/0017-threads-and-scheduling.md).
 
-use core::arch::{asm, global_asm};
+use core::arch::global_asm;
 use core::sync::atomic::{AtomicPtr, AtomicU64, Ordering};
 
 use crate::cell::Racy;
+use crate::cpu::{rdmsr, wrmsr};
 
 const IA32_EFER: u32 = 0xC000_0080;
 const IA32_STAR: u32 = 0xC000_0081;
@@ -124,27 +125,6 @@ extern "C" fn syscall_dispatch(args: *const SyscallArgs) -> u64 {
     unsafe {
         let handler: Handler = core::mem::transmute(raw);
         handler(&*args)
-    }
-}
-
-fn rdmsr(msr: u32) -> u64 {
-    let (hi, lo): (u32, u32);
-    // SAFETY: a side-effect-free MSR read; these MSRs exist on x86-64.
-    unsafe {
-        asm!("rdmsr", in("ecx") msr, out("edx") hi, out("eax") lo,
-             options(nomem, nostack, preserves_flags));
-    }
-    ((hi as u64) << 32) | (lo as u64)
-}
-
-/// # Safety
-/// `msr`/`value` must be valid to write.
-unsafe fn wrmsr(msr: u32, value: u64) {
-    let (hi, lo) = ((value >> 32) as u32, value as u32);
-    // SAFETY: guaranteed by the caller.
-    unsafe {
-        asm!("wrmsr", in("ecx") msr, in("edx") hi, in("eax") lo,
-             options(nostack, preserves_flags));
     }
 }
 

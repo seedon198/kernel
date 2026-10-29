@@ -17,6 +17,7 @@ in ordinary **user** address spaces, not in the kernel half.
 | `0x0000000000001000` | `0x00007fffffffffff` | ~128 TiB | **User space** (per task: a server or tool) |
 | `0x0000800000000000` | `0xffff7fffffffffff` | — | Non-canonical hole (#GP on access) |
 | `0xffff800000000000` | HHDM + RAM | ≤ 64 TiB | **HHDM** — direct map of physical memory (offset from Limine) |
+| `0xfffffe0000000000` | `0xfffffe0000000fff` | 4 KiB | **LAPIC registers** — xAPIC MMIO page, uncached RW+NX (PML4 slot 508, #80) |
 | `0xffffffff90000000` | grows up | window | **Kernel heap** — frames mapped on demand (RW+NX) |
 | *KASLR base* | … | 2 GiB window | **Kernel image** — randomized within the top 2 GiB |
 

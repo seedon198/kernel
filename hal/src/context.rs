@@ -44,15 +44,20 @@ impl Context {
     }
 
     /// Prepare a fresh thread: when first switched to, it begins executing
-    /// `entry` on the stack whose top (highest address) is `stack_top`.
+    /// `entry` on the stack whose top (highest address) is `stack_top`, with
+    /// interrupts **enabled** (so it can be preempted, #80).
     ///
     /// The caller must own at least 64 bytes of stack below `stack_top`, mapped
     /// writable; `entry` must never return (it runs as a thread body).
     pub fn init(&self, stack_top: u64, entry: extern "C" fn() -> !) {
-        // Build the frame `switch` expects: six zeroed callee-saved registers
-        // then the return address. `frame` is 16-aligned so that after `switch`
-        // pops the six registers and `ret`s into `entry`, `rsp % 16 == 8` as the
-        // SysV ABI requires at a function entry.
+        // Build the frame `switch` expects: six callee-saved registers then the
+        // return address. The "return" goes to `thread_start`, which enables
+        // interrupts and jumps to `entry` (parked in the r12 slot): switches
+        // happen with interrupts disabled, and a fresh thread has no saved
+        // interrupt flag of its own to restore. `frame` is 16-aligned so that
+        // after `switch` pops the six registers and `ret`s, `rsp % 16 == 8` —
+        // and `thread_start` `jmp`s (no push), so `entry` sees the SysV ABI's
+        // function-entry alignment.
         let frame = (stack_top - 7 * 8) & !0xf;
         let base = frame as *mut u64;
         // SAFETY: the caller guarantees `[frame, stack_top)` is writable stack
@@ -61,7 +66,8 @@ impl Context {
             for i in 0..6 {
                 base.add(i).write(0); // r15, r14, r13, r12, rbx, rbp
             }
-            base.add(6).write(entry as usize as u64); // return address
+            base.add(3).write(entry as usize as u64); // r12: the thread body
+            base.add(6).write(thread_start as *const () as u64); // return address
         }
         self.rsp.store(frame, Ordering::Relaxed);
     }
@@ -76,6 +82,11 @@ impl Default for Context {
 /// Switch from `prev` to `next`: save the current callee-saved registers and
 /// stack pointer into `prev`, then restore `next`'s and resume it. Returns to
 /// the caller only when some later switch selects `prev` again.
+///
+/// Call with interrupts disabled: once preemption exists (#80), a timer tick
+/// between choosing `next` and switching to it would reschedule underneath the
+/// caller. The resumed thread restores its own interrupt state (on return from
+/// its own `switch` caller, or via `iretq` if it was preempted).
 pub fn switch(prev: &Context, next: &Context) {
     let next_rsp = next.rsp.load(Ordering::Acquire);
     // SAFETY: `prev.rsp` is a valid, aligned `AtomicU64` we may store the saved
@@ -117,6 +128,8 @@ pub fn resume(saved_rsp: u64) -> ! {
 extern "C" {
     /// `context_switch(save_rsp_to: *mut u64, load_rsp: u64)` — see the asm.
     fn context_switch(save_rsp_to: *mut u64, load_rsp: u64);
+    /// First code a fresh thread runs (never called directly) — see the asm.
+    fn thread_start() -> !;
 }
 
 // Save callee-saved registers on the current stack, store the resulting rsp
@@ -142,4 +155,15 @@ global_asm!(
     "    pop rbx",
     "    pop rbp",
     "    ret",
+);
+
+// A fresh thread's first "return" lands in `thread_start` with its entry point
+// in r12 (see `Context::init`). Enable interrupts — the switch that got us here
+// ran with them disabled — and tail-jump into the body.
+global_asm!(
+    ".global thread_start",
+    ".p2align 4",
+    "thread_start:",
+    "    sti",
+    "    jmp r12",
 );

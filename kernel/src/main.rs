@@ -34,10 +34,13 @@ static KERNEL_SPACE: SpinLock<Option<AddressSpace>> = SpinLock::new(None);
 static HEAP: hal::heap::KernelHeap = hal::heap::KernelHeap::new();
 
 /// Round-robin scheduler (#78). Thread 0 is the boot thread; 1 and 2 are the
-/// demo worker threads.
+/// cooperative demo workers; 3 and 4 are the preemption demo spinners (#80).
 static SCHED: SpinLock<sched::Scheduler> = SpinLock::new(sched::Scheduler::new());
-/// Saved contexts, indexed by [`sched::ThreadId`]: boot, worker A, worker B.
-static CONTEXTS: [hal::context::Context; 3] = [
+/// Saved contexts, indexed by [`sched::ThreadId`]: boot, workers A/B, spinners
+/// C/D.
+static CONTEXTS: [hal::context::Context; 5] = [
+    hal::context::Context::new(),
+    hal::context::Context::new(),
     hal::context::Context::new(),
     hal::context::Context::new(),
     hal::context::Context::new(),
@@ -45,6 +48,30 @@ static CONTEXTS: [hal::context::Context; 3] = [
 /// Times each demo worker has been scheduled (proof the switch happened).
 static A_TICKS: AtomicU64 = AtomicU64::new(0);
 static B_TICKS: AtomicU64 = AtomicU64::new(0);
+
+/// LAPIC timer vector (#80): the first vector above the remapped (and masked)
+/// legacy PIC range 0x20–0x2F.
+const TIMER_VECTOR: u8 = 0x30;
+/// Timer interrupt rate: 100 Hz, i.e. a 10 ms round-robin time slice.
+const TIMER_HZ: u32 = 100;
+/// Kernel virtual address of the LAPIC register page: the base of PML4 slot
+/// 508, which neither the bootloader (HHDM, kernel image) nor the heap uses.
+const LAPIC_MMIO_VA: u64 = 0xffff_fe00_0000_0000;
+/// Timer interrupts taken since the LAPIC timer started.
+static TICKS: AtomicU64 = AtomicU64::new(0);
+/// Context switches forced by the timer (as opposed to a cooperative yield).
+static PREEMPTIONS: AtomicU64 = AtomicU64::new(0);
+
+/// Preemption demo (#80): work done by spinners C and D, which never yield.
+static SPIN_WORK: [AtomicU64; 2] = [AtomicU64::new(0), AtomicU64::new(0)];
+/// Spinners that have finished their rounds and exited.
+static SPINNERS_DONE: AtomicU64 = AtomicU64::new(0);
+/// Rounds each spinner runs before exiting.
+const SPIN_ROUNDS: u64 = 4;
+/// Timer ticks of wall time each spinner round lasts.
+const SPIN_ROUND_TICKS: u64 = 5;
+/// Kernel stack size for each spinner thread.
+const SPIN_STACK_BYTES: usize = 16 * 1024;
 
 /// Saved boot-thread context for the ring-3 demo (#79): `enter_user` saves here,
 /// and the "exit" syscall resumes it to return to the boot thread.
@@ -176,13 +203,19 @@ fn kmain(boot_info: &BootInfo) -> ! {
     // syscall, and return.
     demo_syscall(boot_info);
 
+    // Preemptive scheduling (M4, #80): the LAPIC timer drives the round-robin
+    // scheduler, so threads are time-sliced without yielding.
+    if init_preemption() {
+        demo_preemption();
+    }
+
     // Exercise the trap path end to end: a breakpoint (#BP) is a recoverable
     // trap, so the handler prints a report and execution resumes here.
     debug!("triggering a test breakpoint (#BP)...");
     hal::idt::breakpoint();
     info!("resumed after breakpoint");
 
-    info!("kernel: halting (no preemption or user tasks yet)");
+    info!("kernel: idling (timer running; no user tasks yet)");
 
     hal::cpu::halt_loop();
 }
@@ -742,20 +775,72 @@ fn demo_invoke(boot_info: &BootInfo) {
     hal::frame::free_frame(region);
 }
 
-/// Cooperatively yield to the next ready thread: pick it with the round-robin
-/// scheduler (lock released before switching), then switch contexts.
+/// Advance the round-robin queue: rotate the running thread to the back and
+/// return `(current, next)` if that picked a different thread to run.
+///
+/// The caller must keep interrupts disabled from here until the switch to
+/// `next` (a timer preemption in between would rotate the queue again and
+/// leave `current` stale); the scheduler lock is released before switching.
+fn pick_next() -> Option<(sched::ThreadId, sched::ThreadId)> {
+    let mut s = SCHED.lock();
+    let cur = s.current()?;
+    let next = s.rotate()?;
+    (cur != next).then_some((cur, next))
+}
+
+/// Cooperatively yield to the next ready thread. Interrupts are off from the
+/// pick through the switch, and restored when this thread is resumed.
 fn yield_now() {
+    hal::cpu::without_interrupts(|| {
+        if let Some((cur, next)) = pick_next() {
+            hal::context::switch(&CONTEXTS[cur.0], &CONTEXTS[next.0]);
+        }
+    });
+}
+
+/// Exit the running thread: take it out of the run queue for good and switch
+/// to the next one. Its context is never resumed (and its stack is leaked).
+fn exit_current() -> ! {
+    hal::cpu::disable_interrupts();
     let (cur, next) = {
         let mut s = SCHED.lock();
         let Some(cur) = s.current() else {
-            return;
+            panic!("sched: exit with an empty run queue");
         };
-        let Some(next) = s.rotate() else {
-            return;
+        s.remove(cur);
+        // Removing the front makes the next thread in line current.
+        let Some(next) = s.current() else {
+            panic!("sched: the last runnable thread exited");
         };
         (cur, next)
     };
-    if cur != next {
+    hal::context::switch(&CONTEXTS[cur.0], &CONTEXTS[next.0]);
+    unreachable!("sched: an exited thread was resumed");
+}
+
+/// LAPIC timer interrupt (#80): count the tick and preempt the running thread
+/// in favor of the next ready one.
+///
+/// Runs with interrupts disabled (interrupt gate), on the interrupted thread's
+/// kernel stack. If it switches away, the interrupted state stays saved in the
+/// `TrapFrame` on that stack; when the thread is next scheduled, `switch`
+/// returns here and the stub's `iretq` resumes it exactly where it was. No
+/// lock can be held at this point — every `SpinLock` holder runs with
+/// interrupts off — so taking the scheduler lock cannot deadlock.
+fn timer_interrupt(frame: &mut hal::idt::TrapFrame) {
+    TICKS.fetch_add(1, Ordering::Relaxed);
+    // EOI before switching: the next thread may run for a whole time slice
+    // before this handler resumes, and the APIC delivers no further timer
+    // interrupt until this one is acknowledged.
+    hal::lapic::eoi();
+    // Only kernel-mode code is preempted for now: ring 3 enters on the single
+    // TSS.rsp0 stack, which two preempted user threads would share. Per-thread
+    // kernel stacks arrive with the first user task (#82).
+    if frame.cs & 3 != 0 {
+        return;
+    }
+    if let Some((cur, next)) = pick_next() {
+        PREEMPTIONS.fetch_add(1, Ordering::Relaxed);
         hal::context::switch(&CONTEXTS[cur.0], &CONTEXTS[next.0]);
     }
 }
@@ -811,6 +896,12 @@ fn demo_threads(boot_info: &BootInfo) {
     );
     assert!(a > 0 && b > 0, "worker threads never ran");
     info!("sched: both threads ran via context switch (A={a}, B={b})");
+
+    // Retire the cooperative workers: once the timer runs they would otherwise
+    // spin through `yield_now` forever. Their saved contexts are never resumed.
+    let mut s = SCHED.lock();
+    s.remove(ThreadId(1));
+    s.remove(ThreadId(2));
 }
 
 /// The kernel's system-call handler (#79). The first ring-3 syscall is logged
@@ -888,6 +979,125 @@ fn demo_syscall(boot_info: &BootInfo) {
     info!("syscall: entering ring 3 (user stub syscalls in and out)");
     hal::syscall::enter_user(&BOOT_RETURN, &entry);
     info!("syscall: back in the boot thread after ring-3 round trip");
+}
+
+/// Bring up preemption (#80): retire the legacy PIC, enable the Local APIC,
+/// calibrate its timer against the PIT, start it at [`TIMER_HZ`] on
+/// [`TIMER_VECTOR`], and enable interrupts on the boot thread. Returns whether
+/// the timer is running.
+fn init_preemption() -> bool {
+    hal::pic::disable();
+    info!("pic: legacy 8259s remapped to 0x20-0x2f and masked");
+
+    let apic_id = {
+        let mut guard = KERNEL_SPACE.lock();
+        let Some(aspace) = guard.as_mut() else {
+            warn!("lapic: no address space");
+            return false;
+        };
+        if aspace.top_level_flags(LAPIC_MMIO_VA).is_some() {
+            warn!("lapic: MMIO window {LAPIC_MMIO_VA:#x} is already in use");
+            return false;
+        }
+        match hal::lapic::init(aspace, LAPIC_MMIO_VA) {
+            Ok(id) => id,
+            Err(e) => {
+                warn!("lapic: init failed: {e:?}");
+                return false;
+            }
+        }
+    };
+    info!("lapic: enabled (id {apic_id}), registers at {LAPIC_MMIO_VA:#x} (UC)");
+
+    hal::idt::register_handler(TIMER_VECTOR, timer_interrupt);
+    let cfg = match hal::lapic::start_periodic(TIMER_VECTOR, TIMER_HZ) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            warn!("lapic: timer start failed: {e:?}");
+            return false;
+        }
+    };
+    info!(
+        "lapic: timer calibrated against the PIT: {} ticks/ms (div 16); periodic {} Hz, count {}, vector {:#x}",
+        cfg.ticks_per_ms, TIMER_HZ, cfg.initial_count, TIMER_VECTOR
+    );
+
+    hal::cpu::enable_interrupts();
+    true
+}
+
+/// Preemption demo body (#80): spin for [`SPIN_ROUNDS`] rounds of
+/// [`SPIN_ROUND_TICKS`] timer ticks each, **never yielding**, logging both
+/// spinners' work counters after each round. The other spinner's counter
+/// advancing between two of our rounds proves the timer switched us out.
+fn spin(slot: usize, name: char) -> ! {
+    for round in 1..=SPIN_ROUNDS {
+        let start = TICKS.load(Ordering::Relaxed);
+        while TICKS.load(Ordering::Relaxed).wrapping_sub(start) < SPIN_ROUND_TICKS {
+            SPIN_WORK[slot].fetch_add(1, Ordering::Relaxed);
+            core::hint::spin_loop();
+        }
+        info!(
+            "preempt: spinner {name} round {round}/{SPIN_ROUNDS}: work C={} D={} (tick {}, {} preemptions)",
+            SPIN_WORK[0].load(Ordering::Relaxed),
+            SPIN_WORK[1].load(Ordering::Relaxed),
+            TICKS.load(Ordering::Relaxed),
+            PREEMPTIONS.load(Ordering::Relaxed),
+        );
+    }
+    SPINNERS_DONE.fetch_add(1, Ordering::Release);
+    exit_current()
+}
+
+/// Spinner C (#80).
+extern "C" fn spinner_c() -> ! {
+    spin(0, 'C')
+}
+
+/// Spinner D (#80).
+extern "C" fn spinner_d() -> ! {
+    spin(1, 'D')
+}
+
+/// Run two kernel threads that never yield alongside the boot thread, and wait
+/// until both finish: they can only make progress if the timer preempts (#80).
+fn demo_preemption() {
+    use sched::ThreadId;
+
+    // Heap-backed 16 KiB stacks: unlike the one-frame cooperative workers,
+    // these take interrupt frames and format log lines. Leaked, like the exited
+    // threads' contexts.
+    let spinners: [(usize, extern "C" fn() -> !); 2] = [(3, spinner_c), (4, spinner_d)];
+    for (id, entry) in spinners {
+        let stack = Box::leak(alloc::vec![0u8; SPIN_STACK_BYTES].into_boxed_slice());
+        let top = stack.as_ptr() as u64 + SPIN_STACK_BYTES as u64;
+        CONTEXTS[id].init(top, entry);
+    }
+    {
+        let mut s = SCHED.lock();
+        s.admit(ThreadId(3));
+        s.admit(ThreadId(4));
+    }
+    info!("preempt: started spinners C and D (they never yield; only the timer switches them)");
+
+    // The boot thread idles; each tick may preempt it in favor of a spinner.
+    while SPINNERS_DONE.load(Ordering::Acquire) < 2 {
+        hal::cpu::halt();
+    }
+
+    let (c, d) = (
+        SPIN_WORK[0].load(Ordering::Relaxed),
+        SPIN_WORK[1].load(Ordering::Relaxed),
+    );
+    let preemptions = PREEMPTIONS.load(Ordering::Relaxed);
+    assert!(
+        c > 0 && d > 0 && preemptions > 0,
+        "spinners were not time-sliced"
+    );
+    info!(
+        "preempt: both spinners finished, time-sliced by the timer (C={c}, D={d}; {preemptions} preemptions in {} ticks)",
+        TICKS.load(Ordering::Relaxed)
+    );
 }
 
 #[panic_handler]
