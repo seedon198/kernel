@@ -43,6 +43,8 @@ pub struct Features {
     pub smap: bool,
     /// x2APIC mode.
     pub x2apic: bool,
+    /// On-chip Local APIC.
+    pub apic: bool,
     /// XSAVE/XRSTOR extended state.
     pub xsave: bool,
     /// Process-Context Identifiers.
@@ -136,6 +138,7 @@ pub fn detect() -> CpuInfo {
         xsave: ecx1 & (1 << 26) != 0,
         pcid: ecx1 & (1 << 17) != 0,
         x2apic: ecx1 & (1 << 21) != 0,
+        apic: edx1 & (1 << 9) != 0,
         rdrand: ecx1 & (1 << 30) != 0,
         smep: ebx7 & (1 << 7) != 0,
         smap: ebx7 & (1 << 20) != 0,
