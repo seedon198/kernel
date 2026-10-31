@@ -51,7 +51,7 @@ static A_TICKS: AtomicU64 = AtomicU64::new(0);
 static B_TICKS: AtomicU64 = AtomicU64::new(0);
 
 /// LAPIC timer vector (#80): the first vector above the remapped (and masked)
-/// legacy PIC range 0x20–0x2F.
+/// legacy PIC range 0x20-0x2F.
 const TIMER_VECTOR: u8 = 0x30;
 /// Timer interrupt rate: 100 Hz, i.e. a 10 ms round-robin time slice.
 const TIMER_HZ: u32 = 100;

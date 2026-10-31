@@ -9,7 +9,7 @@
 //! Dispatch is table-driven ([ADR 0009] hand-rolled): a per-vector table of
 //! registered handlers lets IRQ drivers (M3), IPIs, and others hook in at
 //! runtime via [`register_handler`]. Vectors without a handler fall back to a
-//! default that prints a diagnostic report; CPU exceptions (0–31) that are not
+//! default that prints a diagnostic report; CPU exceptions (0-31) that are not
 //! recoverable then halt.
 //!
 //! References: Intel SDM Vol. 3A ch. 6 (interrupt & exception handling).
@@ -74,7 +74,7 @@ const IDT_LEN: usize = 256;
 static HANDLERS: [AtomicU64; IDT_LEN] = [const { AtomicU64::new(0) }; IDT_LEN];
 
 /// Register `handler` for `vector`, replacing any previous one. Drivers use
-/// this for IRQ vectors (M3); the architecture reserves 0–31 for exceptions.
+/// this for IRQ vectors (M3); the architecture reserves 0-31 for exceptions.
 pub fn register_handler(vector: u8, handler: Handler) {
     HANDLERS[vector as usize].store(handler as usize as u64, Ordering::Release);
 }

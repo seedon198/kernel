@@ -64,6 +64,15 @@ jobs:
       - name: Check unsafe is confined to hal
         run: ./scripts/check-unsafe.sh
 
+  # House style: no en or em dashes anywhere in the repository.
+  dash-policy:
+    name: Dash policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for en and em dashes
+        run: ./scripts/check-dashes.sh
+
   # Supply-chain: advisories, licenses, sources, bans.
   supply-chain:
     name: Supply chain

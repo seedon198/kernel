@@ -47,8 +47,8 @@ not. Each stub pushes a dummy `0` for the no-error-code vectors so every
 
 Dispatch is **table-driven**: a 256-entry table of handler function pointers
 (`register_handler(vector, fn)`). This is the single hook for CPU exceptions,
-hardware IRQs (M3), IPIs, and anything else. Vectors 0–31 are reserved by the
-architecture for exceptions; 32–255 are available for IRQs and software use.
+hardware IRQs (M3), IPIs, and anything else. Vectors 0-31 are reserved by the
+architecture for exceptions; 32-255 are available for IRQs and software use.
 
 A vector with no registered handler falls back to `default_exception`, which
 prints a diagnostic report (vector name, error code, `CR2` for page faults, and
@@ -67,12 +67,12 @@ even if the kernel stack is corrupt or overflowed.
 
 | Vector(s) | Source | Handler |
 |---|---|---|
-| `0x00`–`0x1F` | CPU exceptions (architecturally reserved) | `default_exception` (+ `#PF` probe recovery) |
-| `0x20`–`0x2F` | Legacy 8259 PICs, **remapped and fully masked** (`hal::pic`) | `0x27` / `0x2F`: spurious-IRQ sinks |
+| `0x00`-`0x1F` | CPU exceptions (architecturally reserved) | `default_exception` (+ `#PF` probe recovery) |
+| `0x20`-`0x2F` | Legacy 8259 PICs, **remapped and fully masked** (`hal::pic`) | `0x27` / `0x2F`: spurious-IRQ sinks |
 | `0x30` | **LAPIC timer** - periodic, 100 Hz | kernel `timer_interrupt` (tick + preempt) |
 | `0xFF` | LAPIC spurious-interrupt vector (`hal::lapic`) | no-op, no EOI |
 
-The PICs power up mapped onto `0x08`–`0x0F`, on top of CPU exceptions, so even
+The PICs power up mapped onto `0x08`-`0x0F`, on top of CPU exceptions, so even
 though nothing uses them they are reprogrammed out of the way and every line is
 masked before interrupts are enabled; a masked PIC can still raise a spurious
 IRQ7/IRQ15, which lands harmlessly on `0x27`/`0x2F`.
@@ -81,7 +81,7 @@ IRQ7/IRQ15, which lands harmlessly on `0x27`/`0x2F`.
 
 Bring-up (`init_preemption` in `kmain`, after the ring-3 demo):
 
-1. `hal::pic::disable()` - remap the 8259s to `0x20`–`0x2F` and mask them.
+1. `hal::pic::disable()` - remap the 8259s to `0x20`-`0x2F` and mask them.
 2. `hal::lapic::init(space, va)` - read `IA32_APIC_BASE`, map the xAPIC
    register page at a dedicated kernel VA (`0xffff_fe00_0000_0000`, PML4 slot
    508) **uncached + NX** (Intel SDM Vol. 3A §11.4.1), set the global and

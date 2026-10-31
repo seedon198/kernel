@@ -41,6 +41,6 @@ formal verification now (left as a "beyond" goal).
   cannot reach ring 0.
 - The offensive network/driver code - which handles the most hostile input -
   is sandboxed by construction.
-- Costs: we must design and build IPC and a server model (M3–M5) before the
+- Costs: we must design and build IPC and a server model (M3-M5) before the
   system is broadly useful, and keep IPC fast. Accepted as core to the project.
 - Keeps a future move toward verification of the core open.

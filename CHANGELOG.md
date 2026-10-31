@@ -31,7 +31,7 @@ All notable changes are documented here. The format follows
 
 - Preemptive scheduling via the LAPIC timer (#80), per
   [ADR 0017](docs/adr/0017-threads-and-scheduling.md). `hal::pic` remaps the
-  legacy 8259s to `0x20`–`0x2F` and masks them; `hal::lapic` maps the xAPIC
+  legacy 8259s to `0x20`-`0x2F` and masks them; `hal::lapic` maps the xAPIC
   register page uncached at a dedicated kernel VA, enables the APIC (spurious
   vector `0xFF`), calibrates its timer against PIT channel 2 (`hal::pit`, a
   polled 10 ms one-shot), and runs it periodic at 100 Hz on vector `0x30`. The
@@ -281,9 +281,9 @@ that reaches the kernel and prints over serial in QEMU.
 - Development environment guide (Rust bare-metal on macOS/Linux/WSL2).
 - Architecture docs: overview (microkernel), security model (capabilities),
   threat model, boot process, memory layout.
-- ADRs 0001–0008: Rust, Rust+LLVM toolchain, Limine, microkernel, Cargo+xtask,
+- ADRs 0001-0008: Rust, Rust+LLVM toolchain, Limine, microkernel, Cargo+xtask,
   capability security model, `forbid(unsafe)` policy, native tooling runtime.
-- Roadmap with milestones M0–M7 and a continuous hardening checklist.
+- Roadmap with milestones M0-M7 and a continuous hardening checklist.
 - GitHub issue forms (bug, feature, security/tooling) and PR template.
 - Repo config: `rust-toolchain.toml`, `rustfmt.toml`, `.editorconfig`,
   `.gitignore`, `.gitattributes`.
@@ -295,7 +295,7 @@ that reaches the kernel and prints over serial in QEMU.
   (`-D warnings`) for the bare-metal and host crates, `cargo xtask build`, the
   `scripts/check-unsafe.sh` policy check, and `cargo deny` / `cargo audit` for
   supply chain. `deny.toml` added. CI badge in the README. The QEMU boot smoke
-  test is deferred to when the boot path (#2–#5) lands.
+  test is deferred to when the boot path (#2-#5) lands.
 - Higher-half linker script and Limine requests (#2): `kernel/arch/x86_64/linker.ld`
   links the kernel at `0xffffffff80000000` with separate R-X / R / RW segments.
   `kernel/src/boot/` declares the Limine requests (base revision, memory map,

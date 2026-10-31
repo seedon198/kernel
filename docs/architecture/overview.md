@@ -52,7 +52,7 @@ the `boot` module (`kernel/src/boot/`, CI-enforced), which holds the ELF entry
 point and the Limine request statics - linker glue needing the
 `#[unsafe(no_mangle)]`/`#[unsafe(link_section)]` attributes, not memory-unsafe
 code. Kernel logic (`kmain` and below) stays `unsafe`-free. Raw hardware access
-- reading MSRs, touching MMIO, writing page tables, inline assembly - lives
+(reading MSRs, touching MMIO, writing page tables, inline assembly) lives
 **only** in the `hal` crate, where every `unsafe` block carries a `// SAFETY:`
 comment stating the invariant it relies on. This concentrates the auditable,
 dangerous code into two small, reviewed places (`hal` and the kernel `boot`
@@ -81,15 +81,15 @@ server. See [ADR 0008](../adr/0008-native-tooling.md).
 
 | Subsystem | Location | Milestone | Responsibility |
 |---|---|---|---|
-| Hardware abstraction | `hal/` | M0–M1 | CPU tables, MMIO, paging, asm - the only `unsafe` |
+| Hardware abstraction | `hal/` | M0-M1 | CPU tables, MMIO, paging, asm - the only `unsafe` |
 | Boot handoff | `kernel/src/boot` | M0 | Receive control from Limine, build `BootInfo` |
 | Early console | `hal` serial | M0 | 16550 UART for logging |
 | Memory | `kernel/src/mem` | M2 | Frames, address spaces, W^X, KASLR |
 | Capabilities | `kernel/src/cap` | M3 | Object model, rights, derivation |
 | IPC | `kernel/src/ipc` | M3 | Synchronous message + capability transfer |
 | Scheduler | `kernel/src/sched` | M4 | Threads, preemption |
-| Syscall boundary | `kernel/src/syscall` | M3–M4 | The thin user↔kernel interface |
-| User servers | `servers/` | M5–M6 | Drivers, net, fs - isolated, least privilege |
+| Syscall boundary | `kernel/src/syscall` | M3-M4 | The thin user↔kernel interface |
+| User servers | `servers/` | M5-M6 | Drivers, net, fs - isolated, least privilege |
 | Security runtime | `runtime/` | M7 | Scripting engine for native tooling |
 | Native tools | `tools/` | M7 | Scanner, sniffer, fuzzer, ... |
 

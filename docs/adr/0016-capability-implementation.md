@@ -22,8 +22,8 @@ M4 adds threads and, on top of them, blocking `Endpoint` IPC and the user→kern
 
 **2. Capability space: a flat per-task table.** A `CapSpace` is a (two-level,
 for growth) table of slots; a `CapId` is an index. Lookup is O(1); the structure
-is small and auditable. We deliberately do **not** adopt seL4's CNode radix tree
-- its sparse flexibility is not worth the complexity at our stage. The capability
+is small and auditable. We deliberately do **not** adopt seL4's CNode radix tree;
+its sparse flexibility is not worth the complexity at our stage. The capability
 *algebra* (rights, attenuation, copy/mint/move/delete) lives in a pure
 `capability` crate, `#![forbid(unsafe_code)]` and host-tested, generic over the
 object-handle type so the kernel binds it to real objects.

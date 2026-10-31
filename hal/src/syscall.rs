@@ -4,7 +4,7 @@
 //! (`EFER.SCE`, `STAR`, `LSTAR`, `FMASK`), [`syscall_entry`] is the kernel entry
 //! stub, and [`enter_user`] drops to ring 3 for the first time via `iretq`. The
 //! message-register ABI is [`capability::abi`]: `rdi` = invoked capability id,
-//! `rsi` = packed `MessageInfo`, `rdx`/`r8`/`r9`/`r10` = message registers 0–3
+//! `rsi` = packed `MessageInfo`, `rdx`/`r8`/`r9`/`r10` = message registers 0-3
 //! (`rcx`/`r11` are reserved by the CPU for the return RIP/RFLAGS); `rax`
 //! returns a status word.
 //!
@@ -37,7 +37,7 @@ pub struct SyscallArgs {
     pub cap: u64,
     /// Packed `MessageInfo` (`rsi`).
     pub msg_info: u64,
-    /// Message registers 0–3 (`rdx`, `r8`, `r9`, `r10`).
+    /// Message registers 0-3 (`rdx`, `r8`, `r9`, `r10`).
     pub mr: [u64; 4],
 }
 
@@ -52,7 +52,7 @@ pub struct UserEntry {
     pub cap: u64,
     /// Packed `MessageInfo` placed in `rsi`.
     pub msg_info: u64,
-    /// Message registers 0–3 placed in `rdx`/`r8`/`r9`/`r10`.
+    /// Message registers 0-3 placed in `rdx`/`r8`/`r9`/`r10`.
     pub mr: [u64; 4],
 }
 

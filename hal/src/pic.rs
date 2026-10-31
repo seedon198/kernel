@@ -1,13 +1,13 @@
 //! The legacy 8259A PIC pair - remapped out of the way and fully masked.
 //!
 //! Interrupts come from the Local APIC (see [`crate::lapic`]); the PICs are not
-//! used. They still power up mapped onto vectors 0x08–0x0F, which collide with
+//! used. They still power up mapped onto vectors 0x08-0x0F, which collide with
 //! CPU exceptions (e.g. IRQ0 would arrive as a "#DF"), so we reprogram them onto
 //! [`PIC1_VECTOR_BASE`]/[`PIC2_VECTOR_BASE`] and mask every line. A masked PIC
 //! can still raise a *spurious* IRQ7/IRQ15; those land on vectors 0x27/0x2F and
 //! are absorbed by the handlers registered here.
 //!
-//! Reference: Intel 8259A datasheet (ICW1–ICW4 initialization sequence).
+//! Reference: Intel 8259A datasheet (ICW1-ICW4 initialization sequence).
 
 use crate::idt::{self, TrapFrame};
 use crate::io::{inb, outb};
@@ -24,18 +24,18 @@ const ICW4_8086: u8 = 0x01;
 /// Non-specific end-of-interrupt command.
 const EOI: u8 = 0x20;
 
-/// First vector of the master PIC after remapping (IRQ0–7 → 0x20–0x27).
+/// First vector of the master PIC after remapping (IRQ0-7 → 0x20-0x27).
 pub const PIC1_VECTOR_BASE: u8 = 0x20;
-/// First vector of the slave PIC after remapping (IRQ8–15 → 0x28–0x2F).
+/// First vector of the slave PIC after remapping (IRQ8-15 → 0x28-0x2F).
 pub const PIC2_VECTOR_BASE: u8 = 0x28;
 
-/// Remap both PICs onto vectors 0x20–0x2F, mask all sixteen lines, and install
+/// Remap both PICs onto vectors 0x20-0x2F, mask all sixteen lines, and install
 /// handlers for their spurious IRQs. Call once, after [`crate::idt::init`] and
 /// before enabling interrupts.
 pub fn disable() {
     // SAFETY: ports 0x20/0x21/0xA0/0xA1 are the 8259A command/data registers on
     // every PC-compatible machine, and 0x80 is the conventional POST-code port
-    // used as a short I/O delay. The ICW1–ICW4 sequence below is the documented
+    // used as a short I/O delay. The ICW1-ICW4 sequence below is the documented
     // initialization; it ends with every line masked, so the PICs can no longer
     // deliver a real IRQ.
     unsafe {

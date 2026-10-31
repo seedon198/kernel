@@ -100,8 +100,8 @@ pub fn switch(prev: &Context, next: &Context) {
 
 /// Resume a context one-way: restore the callee-saved registers and stack
 /// pointer saved at `saved_rsp` and return into whoever saved it (via
-/// [`switch`] or the syscall layer's `enter_user`). Never returns to the caller
-/// - the current stack is abandoned. Used to hand control back to a saved
+/// [`switch`] or the syscall layer's `enter_user`). Never returns to the caller;
+/// the current stack is abandoned. Used to hand control back to a saved
 /// thread from a context with no continuation of its own (e.g. a syscall
 /// handler returning to the boot thread).
 pub fn resume(saved_rsp: u64) -> ! {

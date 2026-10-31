@@ -25,6 +25,13 @@ Discussion, agree an approach, and record it as an
 [ADR](docs/adr/README.md). This applies especially to the security model, the
 syscall/IPC surface, and anything touching the TCB.
 
+## House style: no en or em dashes
+
+Use a plain hyphen (`-`) everywhere, in code, comments and docs, including for
+ranges (`0x20-0x2F`, `M5-M6`). En dashes and em dashes are not allowed, and CI
+(`scripts/check-dashes.sh`) rejects them. In Markdown and doc comments, never
+start a line with `- ` mid-sentence: that turns it into a list item.
+
 ## The `unsafe` rule
 
 `unsafe` is **forbidden** outside the `hal` crate ([ADR 0007](docs/adr/0007-unsafe-policy.md)).
@@ -44,6 +51,7 @@ not be merged. In `hal`, every `unsafe` block needs a `// SAFETY:` comment.
    - `cargo clippy --all-targets -- -D warnings`
    - `cargo xtask test`
    - the kernel boots: `cargo xtask run`
+   - `scripts/check-unsafe.sh` and `scripts/check-dashes.sh`
 4. Open a PR referencing the issue (`Closes #12`) and fill in the template.
 5. Squash-merge after review and green CI.
 

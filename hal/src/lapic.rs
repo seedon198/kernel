@@ -40,7 +40,7 @@ const REG_TIMER_DIVIDE: usize = 0x3E0;
 const SVR_ENABLE: u32 = 1 << 8;
 /// LVT bit 16: entry masked.
 const LVT_MASKED: u32 = 1 << 16;
-/// LVT timer bits 17–18 = 01: periodic mode.
+/// LVT timer bits 17-18 = 01: periodic mode.
 const LVT_TIMER_PERIODIC: u32 = 1 << 17;
 /// Divide-configuration encoding for "divide by 16".
 const TIMER_DIVIDE_BY_16: u32 = 0b0011;
