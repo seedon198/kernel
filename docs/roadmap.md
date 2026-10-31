@@ -2,7 +2,7 @@
 
 Development is organized into **milestones**. Each ends in a state that boots
 in QEMU (and, where relevant, on real hardware) and passes CI. Tracked on
-GitHub: <https://github.com/seedon198/kernel/milestones>.
+GitHub: <https://github.com/seedon198/magnetite/milestones>.
 
 Two themes run through every milestone:
 

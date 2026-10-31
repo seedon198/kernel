@@ -12,7 +12,7 @@ default-members = ["xtask", "libs/boot-info", "libs/frame-alloc", "libs/page-tab
 [workspace.package]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/seedon198/kernel"
+repository = "https://github.com/seedon198/magnetite"
 
 # No unwinder exists on bare metal; abort on panic everywhere. (Harmless for
 # the host-side xtask, which simply aborts instead of unwinding.)

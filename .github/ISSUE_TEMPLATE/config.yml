@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions & ideas
-    url: https://github.com/seedon198/kernel/discussions
+    url: https://github.com/seedon198/magnetite/discussions
     about: Ask questions and discuss design in GitHub Discussions.
-  - name: Security vulnerability in this OS
-    url: https://github.com/seedon198/kernel/security/advisories/new
+  - name: Security vulnerability in Magnetite
+    url: https://github.com/seedon198/magnetite/security/advisories/new
     about: Report vulnerabilities privately, not as public issues.

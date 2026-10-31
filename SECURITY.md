@@ -7,10 +7,10 @@ written permission to test. See the
 [threat model](docs/architecture/threat-model.md) for the full ethical and
 technical boundary.
 
-## Reporting a vulnerability in this OS
+## Reporting a vulnerability in Magnetite
 
 Please **do not** open a public issue. Use GitHub's
-[private vulnerability reporting](https://github.com/seedon198/kernel/security/advisories/new).
+[private vulnerability reporting](https://github.com/seedon198/magnetite/security/advisories/new).
 
 Include a description, the affected commit, and reproduction steps (ideally a
 QEMU command line). Expect an acknowledgement within a week.

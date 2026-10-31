@@ -6,6 +6,17 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Project: renamed to Magnetite
+
+- The project is now **Magnetite** (Fe₃O₄), at
+  <https://github.com/seedon198/magnetite>. GitHub redirects the old
+  `seedon198/kernel` URLs. New brand assets in `docs/assets/`, all with text
+  converted to outlines: an element-tile logo and README banner in light and
+  dark, a small icon, and a social preview. Alongside them, an SVG capture of a
+  real UEFI boot and an architecture diagram, plus the scripts that generate
+  them (`scripts/brand/`). The README is rewritten around them, with current
+  status (v0.3.0, M4 under way) and a milestone table.
+
 ### M4: Scheduling & userspace
 
 - Preemptive scheduling via the LAPIC timer (#80), per
@@ -301,7 +312,7 @@ that reaches the kernel and prints over serial in QEMU.
   runs it for both BIOS and UEFI (BIOS boot is now covered on Linux runners).
   Serial logs are uploaded as artifacts. **M0 complete.**
 
-[0.3.0]: https://github.com/seedon198/kernel/releases/tag/v0.3.0
-[0.2.0]: https://github.com/seedon198/kernel/releases/tag/v0.2.0
-[0.1.0]: https://github.com/seedon198/kernel/releases/tag/v0.1.0
-[0.0.1]: https://github.com/seedon198/kernel/releases/tag/v0.0.1
+[0.3.0]: https://github.com/seedon198/magnetite/releases/tag/v0.3.0
+[0.2.0]: https://github.com/seedon198/magnetite/releases/tag/v0.2.0
+[0.1.0]: https://github.com/seedon198/magnetite/releases/tag/v0.1.0
+[0.0.1]: https://github.com/seedon198/magnetite/releases/tag/v0.0.1
