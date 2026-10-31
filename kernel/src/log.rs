@@ -84,6 +84,17 @@ pub fn write(level: Level, args: core::fmt::Arguments) {
     let _ = writeln!(hal::framebuffer::Writer, "[{}] {}", level.as_str(), args);
 }
 
+/// Write one line to every sink with no level prefix, regardless of the
+/// current level. For the boot banner, not for log records.
+pub fn raw(args: core::fmt::Arguments) {
+    use core::fmt::Write;
+    {
+        let mut serial = SERIAL.lock();
+        let _ = writeln!(serial, "{args}");
+    }
+    let _ = writeln!(hal::framebuffer::Writer, "{args}");
+}
+
 /// Emit a log record at an explicit [`Level`]. The level-specific macros
 /// ([`info!`](crate::info), etc.) are usually clearer.
 #[macro_export]

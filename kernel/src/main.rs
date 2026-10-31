@@ -12,6 +12,7 @@
 
 extern crate alloc;
 
+mod banner;
 mod boot;
 mod log;
 
@@ -116,6 +117,11 @@ fn kmain(boot_info: &BootInfo) -> ! {
         });
     }
 
+    // The banner and system summary come first; everything they show is known
+    // on entry (boot handoff, CPUID) or stamped in at build time.
+    let cpu = hal::cpuid::detect();
+    banner::print(boot_info, &cpu);
+
     info!("hello from the kernel");
     debug!("boot info received at {:p}", boot_info);
 
@@ -125,14 +131,8 @@ fn kmain(boot_info: &BootInfo) -> ! {
     hal::idt::init();
     info!("idt: installed interrupt descriptor table");
 
-    // CPU identity and required features.
-    let cpu = hal::cpuid::detect();
-    info!("cpu: {} \"{}\"", cpu.vendor(), cpu.brand());
+    // Required CPU features (identity and the full flag list are in the banner).
     let f = &cpu.features;
-    info!(
-        "cpu features: nx={} sse2={} smep={} smap={} x2apic={} xsave={} pcid={} 1gib={} rdrand={} invtsc={} syscall={}",
-        f.nx, f.sse2, f.smep, f.smap, f.x2apic, f.xsave, f.pcid, f.gib_pages, f.rdrand, f.invariant_tsc, f.syscall
-    );
     assert!(f.nx, "CPU lacks NX (No-Execute); required for W^X");
     assert!(f.sse2, "CPU lacks SSE2; required baseline for x86-64");
 
@@ -141,23 +141,7 @@ fn kmain(boot_info: &BootInfo) -> ! {
     let (smep, smap) = hal::cpu::enable_smep_smap(f.smep, f.smap);
     info!("cpu protections: smep={smep} smap={smap}");
 
-    // Physical memory summary (full map consumed by the allocator in M2).
-    info!(
-        "memory: {} MiB usable / {} MiB total across {} regions",
-        boot_info.usable_bytes() / (1024 * 1024),
-        boot_info.total_bytes() / (1024 * 1024),
-        boot_info.regions().len()
-    );
-    info!(
-        "layout: hhdm={:#x}  kernel phys={:#x} virt={:#x}",
-        boot_info.hhdm_offset, boot_info.kernel_phys_base, boot_info.kernel_virt_base
-    );
-    // KASLR (#47): the kernel is a PIE that Limine slides to a random base each
-    // boot. Log the slide so backtrace addresses can be mapped back to the
-    // link base for `llvm-addr2line` (subtract the slide first).
-    const KERNEL_LINK_BASE: u64 = 0xffff_ffff_8000_0000;
-    let slide = boot_info.kernel_virt_base.wrapping_sub(KERNEL_LINK_BASE);
-    info!("kaslr: kernel slide={slide:#x} (subtract from addrs before addr2line)");
+    // Memory, layout and the KASLR slide (#47) are reported in the banner.
 
     // Physical frame allocator (M2, #38). Translate the memory map into the
     // allocator's region view (only RegionKind::Usable is handed out), then
@@ -205,7 +189,8 @@ fn kmain(boot_info: &BootInfo) -> ! {
 
     // Preemptive scheduling (M4, #80): the LAPIC timer drives the round-robin
     // scheduler, so threads are time-sliced without yielding.
-    if init_preemption() {
+    let preemptive = init_preemption();
+    if preemptive {
         demo_preemption();
     }
 
@@ -215,6 +200,18 @@ fn kmain(boot_info: &BootInfo) -> ! {
     hal::idt::breakpoint();
     info!("resumed after breakpoint");
 
+    // One line with every protection now in force, each verified above.
+    let slide = boot_info
+        .kernel_virt_base
+        .wrapping_sub(banner::KERNEL_LINK_BASE);
+    info!(
+        "ready: W^X+NX verified, smep={smep} smap={smap}, kaslr slide={slide:#x}, guard pages, {}",
+        if preemptive {
+            "preemptive scheduling"
+        } else {
+            "cooperative scheduling"
+        }
+    );
     info!("kernel: idling (timer running; no user tasks yet)");
 
     hal::cpu::halt_loop();

@@ -16,11 +16,12 @@
 //! through `hal`.
 #![allow(unsafe_code)]
 
-use boot_info::{BootInfo, Framebuffer, MemoryRegion, RegionKind};
+use boot_info::{BootInfo, Firmware, Framebuffer, MemoryRegion, RegionKind, ShortStr};
+use limine::firmware_type::FirmwareType;
 use limine::memory_map::EntryType;
 use limine::request::{
-    ExecutableAddressRequest, FramebufferRequest, HhdmRequest, MemoryMapRequest, RequestsEndMarker,
-    RequestsStartMarker,
+    BootloaderInfoRequest, ExecutableAddressRequest, FirmwareTypeRequest, FramebufferRequest,
+    HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker,
 };
 use limine::BaseRevision;
 
@@ -52,6 +53,16 @@ static KERNEL_ADDRESS: ExecutableAddressRequest = ExecutableAddressRequest::new(
 #[used]
 #[unsafe(link_section = ".requests")]
 static FRAMEBUFFER: FramebufferRequest = FramebufferRequest::new();
+
+/// The bootloader's name and version, for the boot banner.
+#[used]
+#[unsafe(link_section = ".requests")]
+static BOOTLOADER_INFO: BootloaderInfoRequest = BootloaderInfoRequest::new();
+
+/// Whether we were started from BIOS or UEFI, for the boot banner.
+#[used]
+#[unsafe(link_section = ".requests")]
+static FIRMWARE_TYPE: FirmwareTypeRequest = FirmwareTypeRequest::new();
 
 /// Markers bounding the request section so the bootloader's scan is fast.
 #[used]
@@ -105,6 +116,18 @@ pub extern "C" fn _start() -> ! {
             green_shift: fb.green_mask_shift(),
             blue_shift: fb.blue_mask_shift(),
         });
+    }
+
+    if let Some(info) = BOOTLOADER_INFO.get_response() {
+        boot_info.bootloader_name = ShortStr::new(info.name());
+        boot_info.bootloader_version = ShortStr::new(info.version());
+    }
+    if let Some(fw) = FIRMWARE_TYPE.get_response() {
+        boot_info.firmware = match fw.firmware_type() {
+            FirmwareType::X86_BIOS => Firmware::Bios,
+            FirmwareType::UEFI_32 | FirmwareType::UEFI_64 => Firmware::Uefi,
+            _ => Firmware::Unknown,
+        };
     }
 
     crate::kmain(&boot_info)

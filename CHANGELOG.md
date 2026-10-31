@@ -19,6 +19,16 @@ All notable changes are documented here. The format follows
 
 ### M4: Scheduling & userspace
 
+- Boot banner: `kmain` opens with the Fe₃O₄ tile logo in ASCII, the wordmark,
+  version (`git describe`, stamped by the new `kernel/build.rs` with the
+  `rustc` version and build profile) and pre-alpha status, then a system
+  summary. The summary covers bootloader and firmware, CPU and its features,
+  memory, layout and the KASLR slide, replacing the separate `cpu`, `memory`,
+  `layout` and `kaslr` log lines. Boot ends with one `ready:` line listing the
+  verified protections. `BootInfo` gains `firmware` and the bootloader's name
+  and version, copied out of bootloader-reclaimable memory (`ShortStr`,
+  host-tested). See [boot process](docs/architecture/boot.md#boot-banner).
+
 - Preemptive scheduling via the LAPIC timer (#80), per
   [ADR 0017](docs/adr/0017-threads-and-scheduling.md). `hal::pic` remaps the
   legacy 8259s to `0x20`–`0x2F` and masks them; `hal::lapic` maps the xAPIC
