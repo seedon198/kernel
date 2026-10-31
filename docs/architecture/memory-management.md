@@ -8,12 +8,12 @@
 The kernel owns its memory from the ground up: it allocates physical frames,
 builds and switches to its own page tables, enforces W^X/NX in hardware,
 randomizes its own load address, runs a growable heap, and renders page faults
-legibly. Every piece follows one structural rule — **pure, host-tested policy in
-a `libs/` crate; the `unsafe` hardware binding in `hal`** — so the parts that can
+legibly. Every piece follows one structural rule - **pure, host-tested policy in
+a `libs/` crate; the `unsafe` hardware binding in `hal`** - so the parts that can
 be unit-tested on the host are, and the `unsafe` stays confined to `hal` (and the
 boot module), CI-enforced (ADR 0007).
 
-## 1. Physical frame allocator — `frame-alloc` + `hal::frame`
+## 1. Physical frame allocator - `frame-alloc` + `hal::frame`
 
 A **bitmap** allocator (one bit per 4 KiB frame) built from the Limine memory
 map ([ADR 0010](../adr/0010-bitmap-frame-allocator.md)).
@@ -27,7 +27,7 @@ map ([ADR 0010](../adr/0010-bitmap-frame-allocator.md)).
 - Single-frame allocation only; large-page / DMA-contiguous allocation is
   deferred until a consumer needs it.
 
-## 2. Address spaces & page tables — `page-table` + `hal::paging`
+## 2. Address spaces & page tables - `page-table` + `hal::paging`
 
 The kernel runs on 4-level page tables it owns
 ([ADR 0011](../adr/0011-page-tables.md)).
@@ -44,7 +44,7 @@ The kernel runs on 4-level page tables it owns
 - Each future user task will get its own PML4; tasks share nothing by default
   (the memory-level expression of the [capability model](security-model.md)).
 
-## 3. W^X + NX — `hal::paging` + `kmain`
+## 3. W^X + NX - `hal::paging` + `kmain`
 
 The kernel sets **and verifies** its own permissions
 ([ADR 0012](../adr/0012-wx-nx-enforcement.md)).
@@ -65,7 +65,7 @@ The kernel sets **and verifies** its own permissions
 - **No mapping is ever both writable and executable.** `kmain` reads the
   resulting PTE/PML4 flags back and asserts the invariants.
 
-## 4. KASLR — PIE + Limine
+## 4. KASLR - PIE + Limine
 
 The kernel is a position-independent executable that Limine slides to a random
 base each boot ([ADR 0015](../adr/0015-kaslr.md)).
@@ -80,7 +80,7 @@ base each boot ([ADR 0015](../adr/0015-kaslr.md)).
 - *Known limitation:* HHDM-base randomization is configured but not yet
   effective with the stable-pinned `limine` 0.5 protocol revision.
 
-## 5. SMEP / SMAP — `hal::cpu`
+## 5. SMEP / SMAP - `hal::cpu`
 
 `CR4.SMEP`/`CR4.SMAP` are enabled where CPUID reports support
 ([ADR 0013](../adr/0013-kernel-heap.md)). SMEP stops the kernel executing
@@ -88,14 +88,14 @@ user-accessible pages; SMAP stops it reading them without an explicit
 `stac`/`clac` window. Safe to enable now (no user mappings exist); deliberate
 user-memory access in M4 will bracket with `stac`/`clac`.
 
-## 6. Stack guard pages — `hal::gdt` + `kmain`
+## 6. Stack guard pages - `hal::gdt` + `kmain`
 
 Each HAL-owned stack (the #DF / NMI / #MC IST stacks and `rsp0`) is laid out with
 a page-aligned **guard page** below it, which the kernel unmaps. A stack
 overflow runs off the bottom into the unmapped guard and faults, instead of
 silently corrupting the neighboring stack ([ADR 0013](../adr/0013-kernel-heap.md)).
 
-## 7. Kernel heap — `hal::heap`
+## 7. Kernel heap - `hal::heap`
 
 A hand-rolled, **growable first-fit free-list allocator** with coalescing, wired
 to `GlobalAlloc`, so `Box` / `Vec` / `String` work in the kernel
@@ -105,20 +105,20 @@ to `GlobalAlloc`, so `Box` / `Vec` / `String` work in the kernel
   **coalesces** adjacent blocks. An allocation header before each block makes
   `dealloc` alignment-independent.
 - When no block fits, a kernel-supplied **grow hook** maps more frames (RW+NX)
-  contiguously at the next heap address and coalesces them in — no fixed ceiling.
+  contiguously at the next heap address and coalesces them in - no fixed ceiling.
 - The heap lives in a dedicated higher-half window
   (`0xffffffff90000000`). *Known limitation:* this window is a fixed base and is
   not yet coordinated with the KASLR slide; making it collision-checked /
   slide-aware is future work.
 
-## 8. Page-fault diagnostics — `page-table` + `hal::fault` + `hal::idt`
+## 8. Page-fault diagnostics - `page-table` + `hal::fault` + `hal::idt`
 
 A #PF produces a legible report ([ADR 0014](../adr/0014-page-fault-diagnostics.md)):
 
 - the **decoded error code** (not-present vs protection violation, read / write /
   instruction-fetch, user / supervisor), via a host-tested `PageFaultError`;
 - the **region** `CR2` landed in (kernel sections, HHDM, heap, stack guard, …)
-  via a `hal::fault` registry — the *narrowest* match wins, so a guard-page hit
+  via a `hal::fault` registry - the *narrowest* match wins, so a guard-page hit
   is named as such;
 - the register dump and a frame-pointer backtrace.
 
@@ -134,7 +134,7 @@ fault-tolerant accessors user-memory access needs (M4).
 | Physical frames | `frame-alloc` | `hal::frame` |
 | Page tables | `page-table` | `hal::paging` |
 | #PF decode | `page-table` (`PageFaultError`) | `hal::idt` / `hal::fault` |
-| Kernel heap | — (bookkeeping lives in the managed memory) | `hal::heap` |
+| Kernel heap | - (bookkeeping lives in the managed memory) | `hal::heap` |
 
 All of M2 is verified end to end by booting in QEMU (UEFI + BIOS) and checking
 the serial log; the pure crates add host unit tests.

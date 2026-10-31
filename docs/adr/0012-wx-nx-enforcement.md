@@ -8,8 +8,8 @@
 With the kernel owning its page tables (#39, ADR 0011), M2 (#40) enforces two
 foundational hardening invariants rather than trusting the bootloader:
 
-- **W^X** — no mapping is simultaneously writable and executable.
-- **NX** — only code is executable; all data (including the direct physical
+- **W^X** - no mapping is simultaneously writable and executable.
+- **NX** - only code is executable; all data (including the direct physical
   map) is non-executable.
 
 The bootloader (Limine) already applies reasonable per-section permissions, but
@@ -42,11 +42,11 @@ reloaded afterwards to flush the TLB.
 **Enable `EFER.NXE`** before any of this, so the NX page-flag is honored.
 
 **Verify, don't assume.** After applying, the kernel reads back the actual
-flags — `.text` is executable and not writable, `.data` is NX, the HHDM's
-top-level entry is NX — and asserts the invariants, logging a summary.
+flags - `.text` is executable and not writable, `.data` is NX, the HHDM's
+top-level entry is NX - and asserts the invariants, logging a summary.
 
 **KASLR is out of scope here** (#47). Real KASLR requires a position-independent
-kernel and relocation handling — a cross-cutting build change kept in its own
+kernel and relocation handling - a cross-cutting build change kept in its own
 issue so this one stays small and low-risk.
 
 ## Consequences

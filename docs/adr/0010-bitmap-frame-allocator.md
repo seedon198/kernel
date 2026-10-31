@@ -8,7 +8,7 @@
 M2 needs a physical frame allocator: the authority that hands out 4 KiB
 physical frames (from the Limine memory map parsed in #13) to the page-table
 code, the kernel heap, and later device drivers. It is a foundational piece of
-the Trusted Computing Base — every other memory consumer sits on top of it — so
+the Trusted Computing Base - every other memory consumer sits on top of it - so
 its design is recorded here.
 
 We must choose a data structure, and decide whether to support contiguous /
@@ -30,7 +30,7 @@ large (2 MiB, DMA) allocations from the start.
    genuinely free-able is hard, and it offers no contiguous allocation.
 3. **Buddy allocator**: power-of-two block splitting and coalescing. Natively
    serves contiguous, aligned, and large-page/DMA allocations in O(log n). But
-   it is substantially more code — the largest TCB to audit — for capability we
+   it is substantially more code - the largest TCB to audit - for capability we
    do not need until paging maps large pages (later in M2) or devices need DMA
    (M6).
 

@@ -2,7 +2,7 @@
 
 This is a hobby/educational security-focused kernel in early development. It is
 **not production software** and must only be used for **authorized** security
-testing, research and education — against systems you own or have explicit
+testing, research and education - against systems you own or have explicit
 written permission to test. See the
 [threat model](docs/architecture/threat-model.md) for the full ethical and
 technical boundary.

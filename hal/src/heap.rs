@@ -263,7 +263,7 @@ impl Default for KernelHeap {
 }
 
 // SAFETY: `alloc`/`dealloc` serialize through the spinlock and uphold the
-// `GlobalAlloc` contract — `alloc` returns either null or a `layout`-aligned
+// `GlobalAlloc` contract - `alloc` returns either null or a `layout`-aligned
 // block of at least `layout.size()` bytes, and `dealloc` is only called with
 // pointers `alloc` returned.
 unsafe impl GlobalAlloc for KernelHeap {

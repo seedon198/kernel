@@ -21,7 +21,7 @@ body:
       description: See the threat model.
       options:
         - "Dual-use primitive for authorized testing (raw sockets, scan, fuzz)"
-        - "Not sure — needs discussion"
+        - "Not sure - needs discussion"
     validations:
       required: true
   - type: textarea

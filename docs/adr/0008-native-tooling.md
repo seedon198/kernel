@@ -6,7 +6,7 @@
 ## Context
 
 The OS must be a usable **offensive-security platform**, but a deliberate
-constraint is **native tools only** — we are not porting Linux binaries or
+constraint is **native tools only** - we are not porting Linux binaries or
 providing a Linux ABI. We still need a way to write and run security tooling
 (scanners, sniffers, fuzzers, custom protocol pokes) that is fast to iterate on
 and does not require rebuilding and re-flashing the whole OS for every change.
@@ -15,7 +15,7 @@ and does not require rebuilding and re-flashing the whole OS for every change.
 
 1. **Compile every tool into the image**: each tool is a native Rust server
    baked into the build. Maximum performance and type safety, but every new
-   tool or tweak means a full rebuild + redeploy — painful for the
+   tool or tweak means a full rebuild + redeploy - painful for the
    experiment-driven nature of security work.
 2. **A native shell + many small native binaries (Unix style)**: flexible, but
    requires a filesystem, a loader and a userland toolchain-on-device before
@@ -38,13 +38,13 @@ follow-up ADR at milestone M7, when requirements are concrete.
 
 ## Consequences
 
-- Fast iteration on tooling without rebuilding the OS — the right ergonomics
+- Fast iteration on tooling without rebuilding the OS - the right ergonomics
   for security experimentation.
 - "Offense" is confined: the runtime holds only the capabilities granted to it
   ([ADR 0006](0006-security-model.md)), so a script can reach raw sockets only
   if given that capability. This keeps the [threat model](../architecture/threat-model.md)
   boundary intact.
 - We must build and secure an interpreter and its API surface (a non-trivial
-  attack surface itself — it will be sandboxed and fuzzed).
+  attack surface itself - it will be sandboxed and fuzzed).
 - Native-only means no existing-tool compatibility; we build a tool library
   over time. Accepted per the project's direction.

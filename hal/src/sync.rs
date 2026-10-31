@@ -4,7 +4,7 @@
 //! It is **interrupt-safe**: holding the lock disables interrupts on the local
 //! core (restoring their prior state on release), so a handler cannot preempt a
 //! holder and deadlock re-acquiring the same lock (#62). The fuller set of
-//! primitives — mutexes, wait queues — arrives with the scheduler in M4.
+//! primitives - mutexes, wait queues - arrives with the scheduler in M4.
 //!
 //! Lock ordering: locks taken under another lock must sit strictly below it in
 //! a fixed hierarchy. In particular the frame-allocator and page-table locks

@@ -10,7 +10,7 @@ cannot predict the addresses of kernel code and data. Our kernel was linked at a
 fixed higher-half base (`0xffffffff80000000`) with `relocation-model=static`.
 
 The Limine protocol can slide a **position-independent executable (PIE,
-`ET_DYN`)** to a random base and apply its relocations itself — we do not have to
+`ET_DYN`)** to a random base and apply its relocations itself - we do not have to
 process relocations in the kernel. The work is therefore: make the kernel a PIE,
 and turn the bootloader feature on.
 
@@ -37,7 +37,7 @@ This composes with the rest of M2 at no extra cost: W^X keys off linker symbols
 ## Consequences
 
 - The kernel base is randomized per boot (verified in QEMU across boots); the
-  whole kernel — paging, W^X/NX, guard pages, heap, #PF diagnostics, backtrace —
+  whole kernel - paging, W^X/NX, guard pages, heap, #PF diagnostics, backtrace -
   runs correctly at the slid base.
 - Backtrace addresses include the slide; the logged `kaslr: slide=…` line makes
   symbolication a subtraction. (Fully slide-aware in-kernel symbolization would
@@ -46,7 +46,7 @@ This composes with the rest of M2 at no extra cost: W^X keys off linker symbols
   the pinned Limine v11 binary and the stable-compatible `limine` 0.5 crate
   (whose base revision predates HHDM-base randomization). The directive is
   harmless and correct, and will activate if we move to a newer protocol
-  revision; tracked as a follow-up. Kernel-image KASLR — the primary goal —
+  revision; tracked as a follow-up. Kernel-image KASLR - the primary goal -
   works regardless.
 - `-z notext` means some relocations sit in `.rodata`; they are applied by
   Limine before handoff and the section is then re-protected read-only, so there

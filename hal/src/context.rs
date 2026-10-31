@@ -55,7 +55,7 @@ impl Context {
         // interrupts and jumps to `entry` (parked in the r12 slot): switches
         // happen with interrupts disabled, and a fresh thread has no saved
         // interrupt flag of its own to restore. `frame` is 16-aligned so that
-        // after `switch` pops the six registers and `ret`s, `rsp % 16 == 8` —
+        // after `switch` pops the six registers and `ret`s, `rsp % 16 == 8` -
         // and `thread_start` `jmp`s (no push), so `entry` sees the SysV ABI's
         // function-entry alignment.
         let frame = (stack_top - 7 * 8) & !0xf;
@@ -101,7 +101,7 @@ pub fn switch(prev: &Context, next: &Context) {
 /// Resume a context one-way: restore the callee-saved registers and stack
 /// pointer saved at `saved_rsp` and return into whoever saved it (via
 /// [`switch`] or the syscall layer's `enter_user`). Never returns to the caller
-/// — the current stack is abandoned. Used to hand control back to a saved
+/// - the current stack is abandoned. Used to hand control back to a saved
 /// thread from a context with no continuation of its own (e.g. a syscall
 /// handler returning to the boot thread).
 pub fn resume(saved_rsp: u64) -> ! {
@@ -126,9 +126,9 @@ pub fn resume(saved_rsp: u64) -> ! {
 }
 
 extern "C" {
-    /// `context_switch(save_rsp_to: *mut u64, load_rsp: u64)` — see the asm.
+    /// `context_switch(save_rsp_to: *mut u64, load_rsp: u64)` - see the asm.
     fn context_switch(save_rsp_to: *mut u64, load_rsp: u64);
-    /// First code a fresh thread runs (never called directly) — see the asm.
+    /// First code a fresh thread runs (never called directly) - see the asm.
     fn thread_start() -> !;
 }
 
@@ -158,8 +158,8 @@ global_asm!(
 );
 
 // A fresh thread's first "return" lands in `thread_start` with its entry point
-// in r12 (see `Context::init`). Enable interrupts — the switch that got us here
-// ran with them disabled — and tail-jump into the body.
+// in r12 (see `Context::init`). Enable interrupts - the switch that got us here
+// ran with them disabled - and tail-jump into the body.
 global_asm!(
     ".global thread_start",
     ".p2align 4",

@@ -15,7 +15,7 @@ project can sustain.
 ## Options considered
 
 1. **Pragmatic unsafe**: use `unsafe` wherever convenient, wrapped in safe
-   APIs. Fastest, normal practice — but `unsafe` ends up scattered across many
+   APIs. Fastest, normal practice - but `unsafe` ends up scattered across many
    crates, enlarging the audit surface.
 2. **`forbid(unsafe_code)` outside a single audited `hal` crate**: all raw
    hardware access is concentrated in `hal`; the kernel, servers and tools
@@ -44,7 +44,7 @@ so rejected by `#![forbid(unsafe_code)]` with no possible local override:
 - `#[unsafe(link_section = ".requests")]` on each Limine request static, which
   places them where the bootloader can find them.
 
-Neither is memory-unsafe *code* — they are placement/linker directives — but
+Neither is memory-unsafe *code* - they are placement/linker directives - but
 both need `unsafe`. They are all bootloader-handoff concerns, so they live in
 one place: the kernel's **`boot` module** (`kernel/src/boot/`). That module
 carries a single `#![allow(unsafe_code)]`; the kernel crate root stays
@@ -62,13 +62,13 @@ the `hal` crate and the kernel `boot` module.
 
 (We chose this over a separate `boot` *crate* wrapping a `forbid` kernel
 library: keeping the entry in the kernel binary is less churn, and the
-guarantee — no `unsafe` in kernel logic, all glue confined and CI-checked — is
+guarantee - no `unsafe` in kernel logic, all glue confined and CI-checked - is
 the same.)
 
 ## Consequences
 
 - The dangerous surface is two small, reviewable places (`hal` and the kernel
-  `boot` module), instead of the whole tree — a concrete, enforceable security
+  `boot` module), instead of the whole tree - a concrete, enforceable security
   property.
 - Forces clean, safe abstractions over hardware, which improves design.
 - Some ergonomics cost: occasionally a safe wrapper must be added to `hal`

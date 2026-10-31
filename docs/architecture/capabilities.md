@@ -7,7 +7,7 @@
 > [ADR 0006](../adr/0006-security-model.md) / [ADR 0016](../adr/0016-capability-implementation.md)
 > for the decisions.
 
-Authority in this kernel is exactly the set of capabilities a task holds — no
+Authority in this kernel is exactly the set of capabilities a task holds - no
 ambient authority, no "root". A capability is an unforgeable reference to a
 kernel object plus the rights over it; it can only be **attenuated** when
 derived, never widened. This page describes how that model is built.
@@ -22,7 +22,7 @@ in `hal`.
 `RECV`, `GRANT`, `RETYPE`). A `Capability<Obj>` is an object handle plus its
 rights and an optional **badge** (an identifier an endpoint's receiver sees).
 
-- `derive(want)` yields a weaker capability holding exactly `want` — only if
+- `derive(want)` yields a weaker capability holding exactly `want` - only if
   `want` is a subset of the current rights (attenuation; never widening).
 - `mint(want, badge)` derives and stamps a badge once.
 
@@ -34,7 +34,7 @@ HHDM), so copies of a capability share one object.
 ## Capability space
 
 Each task's capabilities live in a **flat table** of slots; a `CapId` is an
-index (O(1) lookup). Operations — `insert`/`get`/`delete`/`move`/`copy`/`mint` —
+index (O(1) lookup). Operations - `insert`/`get`/`delete`/`move`/`copy`/`mint` -
 enforce the rules: a slot fills only when empty, and `copy`/`mint` may only
 attenuate. A **CNode** is the object form of such a table: retyped storage
 holding a `Slot` array, accessed via the HHDM (`hal::object::cnode_cap_space`).
@@ -42,7 +42,7 @@ A growable, two-level space is composed from CNode capabilities.
 
 ## Untyped memory and retype
 
-Objects are created by **retyping Untyped memory** — the kernel never
+Objects are created by **retyping Untyped memory** - the kernel never
 heap-allocates objects on a task's behalf, so a task spends its own memory
 budget and cannot exhaust kernel memory.
 
@@ -65,7 +65,7 @@ budget and cannot exhaust kernel memory.
 | `Endpoint` | a synchronous IPC rendezvous | zeroed state struct | object only; IPC is M4 |
 | `Notification` | an async signal | signal word + waiters | signal works; wait is M4 |
 | `AddressSpace` | a page-table root | a PML4 | object only; user mapping is M4 |
-| `Thread` | a schedulable context | — | M4 |
+| `Thread` | a schedulable context | - | M4 |
 
 Each kind's storage `(size, align)` comes from `ObjectKind::fixed_layout` (or
 `cnode_bytes` for a CNode).
@@ -82,11 +82,11 @@ The kernel resolves the invoked capability in the cap space, **authorizes** it
 (`Method::authorize`: the capability must be the method's target kind and hold
 its required rights), then performs the effect. Methods implemented in M3:
 
-- `CNodeCopy` / `CNodeMint` / `CNodeMove` / `CNodeDelete` — manage capabilities
+- `CNodeCopy` / `CNodeMint` / `CNodeMove` / `CNodeDelete` - manage capabilities
   (attenuation enforced).
-- `FrameIdentify` — return a frame's physical address.
-- `UntypedRetype` — carve a fixed-size object and install its capability.
-- `NotificationSignal` — OR bits into a notification's signal word.
+- `FrameIdentify` - return a frame's physical address.
+- `UntypedRetype` - carve a fixed-size object and install its capability.
+- `NotificationSignal` - OR bits into a notification's signal word.
 
 `Method::authorize` and the `Method`/error types are pure and host-tested; the
 kernel dispatcher adds the memory effects. M4's ring-3 `syscall` entry decodes
@@ -96,9 +96,9 @@ raw register arguments into a `Method` and calls this same path.
 
 These need threads / userspace:
 
-- **Blocking synchronous IPC** — `Endpoint` send / receive / call with
+- **Blocking synchronous IPC** - `Endpoint` send / receive / call with
   capability transfer.
-- **The `syscall` boundary** — the ring-3 entry that invokes capabilities.
+- **The `syscall` boundary** - the ring-3 entry that invokes capabilities.
 - **`Thread`** objects, and user `AddressSpace` mapping.
 - **Untyped splitting** (retyping Untyped → child Untyped) and whole-region
   **revoke**.
@@ -107,7 +107,7 @@ These need threads / userspace:
 
 | Concern | Pure crate (`capability`, host-tested) | `hal` binding |
 |---|---|---|
-| Rights & attenuation | `Capability`, `Rights` | — |
+| Rights & attenuation | `Capability`, `Rights` | - |
 | Capability space | `CapSpace`, `Slot`, `CapId` | `cnode_cap_space` (HHDM) |
 | Untyped accounting | `Untyped`, `ObjectKind`, `ObjectRef` | `retype`, `load`/`store_untyped` |
 | Invocation | `Method`, `authorize`, errors | kernel `invoke` + effects |

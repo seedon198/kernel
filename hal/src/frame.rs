@@ -9,7 +9,7 @@
 //! 1. backing the bitmap with real memory, by forming a `&'static mut [u64]`
 //!    over a usable RAM region through the Higher-Half Direct Map (HHDM); and
 //! 2. zeroing each frame as it is handed out, so a new owner can never read a
-//!    previous owner's data (a hardening default — see ADR 0010).
+//!    previous owner's data (a hardening default - see ADR 0010).
 //!
 //! The global allocator is guarded by a [`SpinLock`]; the frame-zeroing write
 //! happens *after* the lock is released, since the frame is exclusively ours
@@ -86,7 +86,7 @@ pub fn alloc_frame() -> Option<PhysFrame> {
 /// Return a frame to the pool.
 ///
 /// # Panics
-/// On a double free or a free of an untracked frame — both are kernel bugs
+/// On a double free or a free of an untracked frame - both are kernel bugs
 /// (see [`FreeError`]).
 pub fn free_frame(frame: PhysFrame) {
     match ALLOCATOR.lock().as_mut() {

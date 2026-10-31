@@ -1,4 +1,4 @@
-//! The legacy 8259A PIC pair — remapped out of the way and fully masked.
+//! The legacy 8259A PIC pair - remapped out of the way and fully masked.
 //!
 //! Interrupts come from the Local APIC (see [`crate::lapic`]); the PICs are not
 //! used. They still power up mapped onto vectors 0x08–0x0F, which collide with

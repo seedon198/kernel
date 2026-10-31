@@ -43,14 +43,14 @@ All notable changes are documented here. The format follows
   saved thread one-way. The message-register ABI is the pure `capability::abi`
   (`MessageInfo`: label/length/caps, host-tested). `kmain` maps a tiny user stub
   (R-X user) and stack (RW+NX user), enters ring 3, and the stub `syscall`s in
-  and out — the kernel decodes the message and returns to the boot thread.
+  and out - the kernel decodes the message and returns to the boot thread.
   Verified in QEMU. Also a paging fix: `map` now upgrades an existing
   intermediate table's USER/WRITABLE bits when a user mapping reuses it (U/S and
   R/W are cumulative across levels).
 
 - Threads, context switch, and a cooperative round-robin scheduler (#78), per
   [ADR 0017](docs/adr/0017-threads-and-scheduling.md). A new pure `sched` crate
-  (`#![forbid(unsafe_code)]`, host-tested) is the round-robin policy — a ready
+  (`#![forbid(unsafe_code)]`, host-tested) is the round-robin policy - a ready
   queue of `ThreadId`s with admit/rotate/remove. `hal::context` saves/restores a
   thread's callee-saved registers and stack pointer (`Context` + `switch`), and
   `Context::init` crafts a fresh thread's stack to begin at an entry point.
@@ -60,7 +60,7 @@ All notable changes are documented here. The format follows
 
 ## [0.3.0] - 2026-10-28
 
-M3: the capability model — the microkernel's security core. Unforgeable
+M3: the capability model - the microkernel's security core. Unforgeable
 capabilities with attenuation-only rights, a per-task capability space backed
 by CNodes, Untyped memory and retype (the kernel never heap-allocates objects),
 the core object kinds, and a rights-checked invocation API. Also fixes two
@@ -88,16 +88,16 @@ threads and are part of M4.
   splitting/revoke). The security-model doc, threat model, roadmap, and README
   are updated to match. **M3's capability model is complete.**
 
-- Capability invocation API (#57): a new pure `capability::invoke` module —
+- Capability invocation API (#57): a new pure `capability::invoke` module -
   `Method` (CNode copy/mint/move/delete, `FrameIdentify`, `UntypedRetype`,
   `NotificationSignal`), `InvokeOk`/`InvokeError`, and `Method::authorize`
-  (checks the invoked capability's kind and required rights) — host-tested. The
+  (checks the invoked capability's kind and required rights) - host-tested. The
   kernel's `invoke(cspace, cap, method, hhdm)` resolves the capability,
   authorizes it, and performs the effect (CNode ops on the cap space; retype
   via the Untyped control block; notification signal through the HHDM). This is
   the surface M4's ring-3 `syscall` will call. `kmain` drives it: retype a Frame
   through `invoke`, identify it, show a rights-denied invocation, and signal a
-  Notification — all verified.
+  Notification - all verified.
 
 - Core kernel object types & CNode-backed capability space (#56): `capability::
   object` gains per-kind storage layouts (`ObjectKind::fixed_layout`; `Frame`/
@@ -106,19 +106,19 @@ threads and are part of M4.
   forms a `CapSpace` over a CNode's retyped storage (HHDM-backed, slots
   initialized to empty). `kmain` now runs the full path end to end: retype a
   CNode, an Endpoint, and a Notification from one Untyped, install full-rights
-  capabilities, and derive an attenuated SEND-only copy — verified. Objects, the
+  capabilities, and derive an attenuated SEND-only copy - verified. Objects, the
   cap space, and the caps all live in Untyped memory.
 
 - Untyped memory & retype (#55): a new `capability::object` module (pure,
   host-tested) adds `ObjectKind`, `ObjectRef { kind, phys }` (the kernel's
-  object handle), and `Untyped` — a physical region with a bump watermark whose
+  object handle), and `Untyped` - a physical region with a bump watermark whose
   `allocate` carves naturally-aligned, fixed-size object storage (checked for
   alignment, overflow, and exhaustion; reclaim is whole-region only, per
   ADR 0016). `hal::object::retype` carves from an `Untyped` and **zeroes** the
   storage through the HHDM. `kmain` demonstrates a retype and that an
   over-budget request is rejected with accounting intact.
 
-- Per-task capability space (#54): a `CapSpace` in the `capability` crate — a
+- Per-task capability space (#54): a `CapSpace` in the `capability` crate - a
   flat table of capability slots (`CapId` = index, O(1) lookup) over
   caller-provided storage, with `insert`/`get`/`delete`/`move`/`copy`/`mint`.
   A slot fills only when empty; `copy`/`mint` may only **attenuate** the source
@@ -126,7 +126,7 @@ threads and are part of M4.
   space from these tables, backed by Untyped memory (#55).
 
 - Capability core (#53): a new pure `capability` crate (`#![forbid(unsafe_code)]`,
-  host-tested) with the capability algebra — `Rights` bit flags with
+  host-tested) with the capability algebra - `Rights` bit flags with
   intersection/attenuation, and a `Capability<Obj>` (object handle + rights +
   badge) whose `derive`/`mint` can only weaken rights (never widen) and set a
   badge once. Generic over the object handle so the kernel binds it to real
@@ -135,7 +135,7 @@ threads and are part of M4.
 ## [0.2.0] - 2026-10-28
 
 M2: memory & isolation. The kernel takes full control of physical and virtual
-memory and enforces hardware hardening — its own frame allocator and page
+memory and enforces hardware hardening - its own frame allocator and page
 tables, W^X/NX (including a non-executable physmap), SMEP/SMAP, kernel KASLR,
 stack guard pages, zeroed-on-allocation frames, a growable kernel heap, and
 legible page-fault diagnostics.
@@ -163,16 +163,16 @@ legible page-fault diagnostics.
   violation, read/write/instruction-fetch, user/supervisor) using a new
   host-tested `PageFaultError` in the `page-table` crate, and names the region
   `CR2` landed in via a `hal::fault` registry (kernel sections, HHDM, heap,
-  stack guards — narrowest match wins, so a guard page is reported as such). A
+  stack guards - narrowest match wins, so a guard page is reported as such). A
   recoverable `probe_read` (a one-entry exception table) lets code touch a
-  possibly-unmapped address without crashing — the handler recognizes the probe
-  and resumes at a fixup — which `kmain` uses to verify a stack guard faults and
+  possibly-unmapped address without crashing - the handler recognizes the probe
+  and resumes at a fixup - which `kmain` uses to verify a stack guard faults and
   recovers while mapped memory reads cleanly. This is the seed of the
   fault-tolerant accessors user-memory access will need (M4).
 - SMEP/SMAP, guard pages, and the kernel heap (#41), per
   [ADR 0013](docs/adr/0013-kernel-heap.md):
   - **SMEP/SMAP** are enabled in `CR4` where CPUID reports them, blocking the
-    kernel from executing or reading user-accessible pages (safe now — no user
+    kernel from executing or reading user-accessible pages (safe now - no user
     mappings exist). The QEMU test VM runs `-cpu qemu64,+smep,+smap`.
   - **Stack guard pages**: each HAL-owned stack (the #DF/NMI/#MC IST stacks and
     `rsp0`) gets a page-aligned guard below it that the kernel unmaps, so an
@@ -187,7 +187,7 @@ legible page-fault diagnostics.
   enabled; the kernel image is repermissioned per section from linker symbols
   (`.text` R-X, `.rodata` R+NX, `.data`/`.bss` RW+NX) via a new
   `AddressSpace::protect`; and the HHDM (the direct physical map) is made
-  non-executable by setting NX on its top-level entries — closing the
+  non-executable by setting NX on its top-level entries - closing the
   "execute from the physmap alias" primitive. `kmain` applies this and then
   reads the resulting PTE/PML4 flags back to assert the invariants (no W+X,
   `.text` executable, data and HHDM NX). KASLR is tracked separately (#47).
@@ -205,8 +205,8 @@ legible page-fault diagnostics.
   (W^X/NX) and KASLR come in #40.
 - Physical frame allocator (#38): a bitmap allocator (one bit per 4 KiB frame)
   built from the memory map, per [ADR 0010](docs/adr/0010-bitmap-frame-allocator.md).
-  The allocation *policy* lives in the new `frame-alloc` crate —
-  `#![forbid(unsafe_code)]`, host-unit-tested — which decides which frame to
+  The allocation *policy* lives in the new `frame-alloc` crate -
+  `#![forbid(unsafe_code)]`, host-unit-tested - which decides which frame to
   hand out over an abstract bitmap. `hal::frame` backs that bitmap with real
   RAM through the HHDM and zeroes every frame on allocation (no stale data
   leaks to a new owner). Frame 0 and the bitmap's own storage are reserved;
@@ -254,8 +254,8 @@ console.
   invariant TSC, syscall). `kmain` logs a RAM and CPU summary and asserts NX +
   SSE2 are present. Host unit tests cover the `BootInfo` accounting.
 - Framebuffer console (#14): `hal::framebuffer` renders the bundled public-domain
-  8x8 bitmap font (`hal::font`) onto the Limine framebuffer — glyphs, newlines,
-  tabs, and scrolling — and registers as a second log sink, so kernel output
+  8x8 bitmap font (`hal::font`) onto the Limine framebuffer - glyphs, newlines,
+  tabs, and scrolling - and registers as a second log sink, so kernel output
   appears on screen as well as serial (the path that matters on real hardware
   without a serial port). `BootInfo` carries the framebuffer geometry.
 

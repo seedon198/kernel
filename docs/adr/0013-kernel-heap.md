@@ -51,10 +51,10 @@ round-trip and full reclamation.
 - General-purpose kernel allocation with zero dependencies; the allocator is in
   the audited `hal`.
 - First-fit + coalescing keeps fragmentation bounded for typical kernel use; it
-  is not optimized for highly concurrent or pathological workloads — revisit
+  is not optimized for highly concurrent or pathological workloads - revisit
   (e.g. slab caches) if profiling demands.
 - The heap can grow without a preset ceiling; a partial mapping failure at true
-  OOM leaks a few frames (acceptable — the system is out of memory).
+  OOM leaks a few frames (acceptable - the system is out of memory).
 - The grow hook must never itself allocate on the heap (it runs under the heap
   lock); lock order is heap → {kernel page tables, frame allocator}, and nothing
   on that path allocates, so there is no cycle.

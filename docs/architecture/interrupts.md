@@ -69,7 +69,7 @@ even if the kernel stack is corrupt or overflowed.
 |---|---|---|
 | `0x00`–`0x1F` | CPU exceptions (architecturally reserved) | `default_exception` (+ `#PF` probe recovery) |
 | `0x20`–`0x2F` | Legacy 8259 PICs, **remapped and fully masked** (`hal::pic`) | `0x27` / `0x2F`: spurious-IRQ sinks |
-| `0x30` | **LAPIC timer** — periodic, 100 Hz | kernel `timer_interrupt` (tick + preempt) |
+| `0x30` | **LAPIC timer** - periodic, 100 Hz | kernel `timer_interrupt` (tick + preempt) |
 | `0xFF` | LAPIC spurious-interrupt vector (`hal::lapic`) | no-op, no EOI |
 
 The PICs power up mapped onto `0x08`–`0x0F`, on top of CPU exceptions, so even
@@ -81,12 +81,12 @@ IRQ7/IRQ15, which lands harmlessly on `0x27`/`0x2F`.
 
 Bring-up (`init_preemption` in `kmain`, after the ring-3 demo):
 
-1. `hal::pic::disable()` — remap the 8259s to `0x20`–`0x2F` and mask them.
-2. `hal::lapic::init(space, va)` — read `IA32_APIC_BASE`, map the xAPIC
+1. `hal::pic::disable()` - remap the 8259s to `0x20`–`0x2F` and mask them.
+2. `hal::lapic::init(space, va)` - read `IA32_APIC_BASE`, map the xAPIC
    register page at a dedicated kernel VA (`0xffff_fe00_0000_0000`, PML4 slot
    508) **uncached + NX** (Intel SDM Vol. 3A §11.4.1), set the global and
    software enables, `TPR = 0`, spurious vector `0xFF`.
-3. `hal::lapic::start_periodic(0x30, 100)` — **calibrate** the APIC timer
+3. `hal::lapic::start_periodic(0x30, 100)` - **calibrate** the APIC timer
    against PIT channel 2 (a 10 ms one-shot, polled through port `0x61`, so no
    IRQ and no PIC is involved), then program it periodic at divide-by-16 with
    `initial count = ticks/ms × 10`.
@@ -152,6 +152,6 @@ preemptions with no deadlock.
   (#82). The `syscall` path runs with `IF = 0` (`FMASK`), so it is not
   preempted either.
 - Single core only: one LAPIC, one run queue, no IPIs. SMP needs per-CPU state.
-- xAPIC (MMIO) mode only; x2APIC is a later refinement. No I/O APIC yet —
+- xAPIC (MMIO) mode only; x2APIC is a later refinement. No I/O APIC yet -
   device IRQs arrive with driver servers (M5/M6).
 - The timer is a fixed-rate tick, not tickless/one-shot.

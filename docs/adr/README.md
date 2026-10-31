@@ -5,7 +5,7 @@ and the consequences. ADRs are immutable once accepted; to change a decision,
 write a new ADR that *supersedes* the old one.
 
 Significant decisions are **discussed with the maintainer before being
-accepted** — ADRs record the outcome of that discussion, they don't replace it.
+accepted** - ADRs record the outcome of that discussion, they don't replace it.
 
 | # | Title | Status |
 |---|---|---|

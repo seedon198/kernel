@@ -45,7 +45,7 @@ impl PageTableFlags {
     /// This entry maps a large page (2 MiB at PD, 1 GiB at PDPT) rather than
     /// pointing at a lower table.
     pub const HUGE: Self = Self(1 << 7);
-    /// The mapping is global — not flushed from the TLB on a `CR3` reload.
+    /// The mapping is global - not flushed from the TLB on a `CR3` reload.
     pub const GLOBAL: Self = Self(1 << 8);
     /// Execution is forbidden from the referenced memory (requires EFER.NXE).
     pub const NO_EXECUTE: Self = Self(1 << 63);
@@ -162,44 +162,44 @@ impl PageFaultError {
         Self(bits)
     }
 
-    /// Bit 0 — set: a protection violation on a present page; clear: the page
+    /// Bit 0 - set: a protection violation on a present page; clear: the page
     /// was not present.
     #[must_use]
     pub const fn protection_violation(self) -> bool {
         self.0 & (1 << 0) != 0
     }
 
-    /// Bit 1 — the access was a write (else a read).
+    /// Bit 1 - the access was a write (else a read).
     #[must_use]
     pub const fn write(self) -> bool {
         self.0 & (1 << 1) != 0
     }
 
-    /// Bit 2 — the access was from user mode (CPL 3) rather than supervisor.
+    /// Bit 2 - the access was from user mode (CPL 3) rather than supervisor.
     #[must_use]
     pub const fn user(self) -> bool {
         self.0 & (1 << 2) != 0
     }
 
-    /// Bit 3 — a reserved bit was set in a paging-structure entry.
+    /// Bit 3 - a reserved bit was set in a paging-structure entry.
     #[must_use]
     pub const fn reserved_write(self) -> bool {
         self.0 & (1 << 3) != 0
     }
 
-    /// Bit 4 — the access was an instruction fetch (NX / SMEP).
+    /// Bit 4 - the access was an instruction fetch (NX / SMEP).
     #[must_use]
     pub const fn instruction_fetch(self) -> bool {
         self.0 & (1 << 4) != 0
     }
 
-    /// Bit 5 — a protection-key violation.
+    /// Bit 5 - a protection-key violation.
     #[must_use]
     pub const fn protection_key(self) -> bool {
         self.0 & (1 << 5) != 0
     }
 
-    /// Bit 6 — a shadow-stack access.
+    /// Bit 6 - a shadow-stack access.
     #[must_use]
     pub const fn shadow_stack(self) -> bool {
         self.0 & (1 << 6) != 0
@@ -212,7 +212,7 @@ impl PageFaultError {
     }
 }
 
-/// The four table indices (PML4, PDPT, PD, PT — in that order) a virtual
+/// The four table indices (PML4, PDPT, PD, PT - in that order) a virtual
 /// address walks through.
 #[must_use]
 pub const fn table_indices(virt: u64) -> [usize; 4] {

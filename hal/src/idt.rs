@@ -1,8 +1,8 @@
 //! Interrupt Descriptor Table and the interrupt/exception dispatch path.
 //!
 //! We install a 256-entry IDT whose gates point at hand-written assembly stubs
-//! (generated below). Each stub normalizes the stack — pushing a dummy error
-//! code for vectors the CPU does not supply one for — pushes its vector number,
+//! (generated below). Each stub normalizes the stack - pushing a dummy error
+//! code for vectors the CPU does not supply one for - pushes its vector number,
 //! and jumps to a common stub that saves all general-purpose registers into a
 //! [`TrapFrame`] and calls [`idt_dispatch`].
 //!
@@ -204,12 +204,12 @@ fn default_exception(frame: &mut TrapFrame) {
     );
 
     if frame.vector == 3 {
-        let _ = writeln!(com1, "  (breakpoint — resuming)");
+        let _ = writeln!(com1, "  (breakpoint - resuming)");
         return;
     }
 
     crate::backtrace::print_from(&mut com1, frame.rbp);
-    let _ = writeln!(com1, "  unrecoverable exception — halting");
+    let _ = writeln!(com1, "  unrecoverable exception - halting");
     crate::cpu::halt_loop();
 }
 

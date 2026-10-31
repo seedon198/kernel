@@ -66,7 +66,7 @@ global_asm!(
     ".global probe_read_fixup",
     ".p2align 4",
     "probe_read_byte:",
-    "    movzx eax, byte ptr [rdi]", // may #PF — this is the recorded fault site
+    "    movzx eax, byte ptr [rdi]", // may #PF - this is the recorded fault site
     "    xor eax, eax",              // success -> 0
     "    ret",
     "probe_read_fixup:",

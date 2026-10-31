@@ -9,8 +9,8 @@ guide explains how we work.
 - **`main` must always build and boot.** Every change lands via a pull request
   that passes CI.
 - **Docs are part of the change.** Update the matching page in
-  [`docs/`](docs/README.md) — and the [threat model](docs/architecture/threat-model.md)
-  for security-relevant changes — in the same PR.
+  [`docs/`](docs/README.md) - and the [threat model](docs/architecture/threat-model.md)
+  for security-relevant changes - in the same PR.
 - **Authorized use only.** This project is for authorized security testing,
   research and education. Contributions must respect the ethical boundary in
   the [threat model](docs/architecture/threat-model.md): dual-use primitives

@@ -7,7 +7,7 @@
 //!
 //! ## `unsafe` in this module
 //!
-//! This module carries `#![allow(unsafe_code)]` — the only place outside `hal`
+//! This module carries `#![allow(unsafe_code)]` - the only place outside `hal`
 //! permitted to, and CI-enforced to stay that way (see
 //! `docs/adr/0007-unsafe-policy.md`). The `unsafe` here is limited to linker
 //! glue: the `#[unsafe(link_section = ...)]` placement of the Limine request
@@ -126,11 +126,11 @@ extern "C" {
 /// apply W^X permissions (#40).
 #[derive(Clone, Copy)]
 pub struct KernelSections {
-    /// `.text` — executable code (maps R-X).
+    /// `.text` - executable code (maps R-X).
     pub text: (u64, u64),
-    /// `.rodata` — read-only data (maps R, NX).
+    /// `.rodata` - read-only data (maps R, NX).
     pub rodata: (u64, u64),
-    /// `.data` + `.bss` — writable data (maps RW, NX).
+    /// `.data` + `.bss` - writable data (maps RW, NX).
     pub data: (u64, u64),
 }
 

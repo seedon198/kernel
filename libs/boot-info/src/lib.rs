@@ -130,7 +130,7 @@ impl BootInfo {
     }
 
     /// Total bytes of actual RAM (all regions except firmware-reserved,
-    /// framebuffer, and known-bad memory — i.e. excluding MMIO holes).
+    /// framebuffer, and known-bad memory - i.e. excluding MMIO holes).
     #[must_use]
     pub fn total_bytes(&self) -> u64 {
         self.regions()

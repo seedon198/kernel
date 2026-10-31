@@ -7,7 +7,7 @@
 
 The project is a Rust workspace (kernel, HAL, servers, tools). Beyond compiling
 Rust, the build must fetch and run Limine, assemble a bootable ISO, launch
-QEMU, and attach a debugger — on macOS, Linux and CI.
+QEMU, and attach a debugger - on macOS, Linux and CI.
 
 ## Options considered
 
@@ -16,7 +16,7 @@ QEMU, and attach a debugger — on macOS, Linux and CI.
    especially macOS vs. Linux `sed`/`dd`).
 2. **GNU Make wrapping Cargo**: familiar, but macOS ships Make 3.81, adds a
    second language, and reimplements logic Cargo already knows.
-3. **`cargo xtask`**: the community-standard pattern — a plain Rust binary in
+3. **`cargo xtask`**: the community-standard pattern - a plain Rust binary in
    the workspace (`cargo xtask <cmd>`) that orchestrates everything. The build
    automation is itself type-checked Rust, cross-platform, and needs no tool
    beyond the Rust toolchain already required.

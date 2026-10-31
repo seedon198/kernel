@@ -38,8 +38,8 @@ pub fn retype(untyped: &mut Untyped, size: u64, align: u64, count: u64, hhdm: u6
 /// slice is handed back as a [`CapSpace`].
 ///
 /// The caller must pass a `phys` that is a CNode just retyped for `slots` slots
-/// — so `phys .. phys + slots * size_of::<Slot<ObjectRef>>()` is our RAM, mapped
-/// in the HHDM at `hhdm` and owned exclusively by this CNode — and must not form
+/// - so `phys .. phys + slots * size_of::<Slot<ObjectRef>>()` is our RAM, mapped
+/// in the HHDM at `hhdm` and owned exclusively by this CNode - and must not form
 /// a second `CapSpace` aliasing the same storage while this one lives. (A safe
 /// wrapper over internal `unsafe`, like the other HHDM-backed HAL constructors.)
 #[must_use]

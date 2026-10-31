@@ -16,7 +16,7 @@ use hal::sync::SpinLock;
 
 /// Log severity, ordered from most to least severe.
 ///
-/// Not every variant is constructed yet — the full set is used across M1 as
+/// Not every variant is constructed yet - the full set is used across M1 as
 /// subsystems start logging at their natural levels.
 #[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

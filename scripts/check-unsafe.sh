@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Enforce the unsafe-code policy (ADR 0007): `unsafe` lives only in the `hal`
-# crate, with exactly one audited exception — the `#[allow(unsafe_code)]` on the
+# crate, with exactly one audited exception - the `#[allow(unsafe_code)]` on the
 # kernel's `_start` entry shim (the ELF entry needs `#[unsafe(no_mangle)]`,
 # which `forbid` cannot permit).
 #

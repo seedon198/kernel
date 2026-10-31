@@ -17,9 +17,9 @@ Formatting is enforced by `rustfmt`; lints by `clippy`.
   ```
   `hal` omits the unsafe lint (it is the home of `unsafe`). The `kernel` binary
   uses `#![deny(unsafe_code)]`; its only `#[allow(unsafe_code)]` is confined to
-  the `boot` module (entry point + Limine request placement), CI-enforced — see
+  the `boot` module (entry point + Limine request placement), CI-enforced - see
   ADR 0007.
-- **Naming:** standard Rust — `snake_case` items, `CamelCase` types,
+- **Naming:** standard Rust - `snake_case` items, `CamelCase` types,
   `SCREAMING_SNAKE_CASE` consts. No Hungarian notation.
 - **Errors:** return `Result<T, E>` with explicit error enums. No `unwrap()` /
   `expect()` in kernel or server code paths that can fail at runtime; reserve

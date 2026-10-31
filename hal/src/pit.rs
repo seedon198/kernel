@@ -3,7 +3,7 @@
 //!
 //! We use **channel 2** in mode 0 (interrupt on terminal count): its gate and
 //! output are wired to port 0x61, so the countdown can be started and polled
-//! without an IRQ — and without unmasking the legacy PIC.
+//! without an IRQ - and without unmasking the legacy PIC.
 //!
 //! Reference: Intel 8254 datasheet; port 0x61 is the PC "system control port B".
 
