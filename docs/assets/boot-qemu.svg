@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 855 676" width="855" height="676" role="img" aria-label="Magnetite booting in QEMU: serial console output">
+<title>Magnetite booting in QEMU (serial console)</title>
+<rect width="855" height="676" rx="10" fill="#0f1218"/>
+<rect width="855" height="36" rx="10" fill="#1a1f28"/><rect y="26" width="855" height="10" fill="#1a1f28"/>
+<circle cx="22" cy="18" r="6" fill="#e5737a"/><circle cx="42" cy="18" r="6" fill="#e0b062"/><circle cx="62" cy="18" r="6" fill="#7fb88a"/>
+<text x="427.5" y="22" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" fill="#6b7484">qemu-system-x86_64 · q35 · UEFI (OVMF) · serial</text>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#c9d1dc">
+<text x="22" y="72" fill="#6b7484">$ cargo xtask run</text>
+<text x="22" y="91" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> hello from the kernel</text>
+<text x="22" y="110" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> gdt: loaded GDT, TSS, and segment registers</text>
+<text x="22" y="129" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> idt: installed interrupt descriptor table</text>
+<text x="22" y="148" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> cpu: AuthenticAMD "QEMU Virtual CPU version 2.5+"</text>
+<text x="22" y="167" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> cpu features: nx=true sse2=true smep=true smap=true x2apic=false xsave=false pcid=false</text>
+<text x="22" y="186" xml:space="preserve"><tspan>       </tspan>   1gib=false rdrand=false invtsc=false syscall=true</text>
+<text x="22" y="205" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> cpu protections: smep=true smap=true</text>
+<text x="22" y="224" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> memory: 205 MiB usable / 251 MiB total across 36 regions</text>
+<text x="22" y="243" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> layout: hhdm=0xffff800000000000  kernel phys=0xbba1000 virt=0xffffffff88a3a000</text>
+<text x="22" y="262" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> kaslr: kernel slide=0x8a3a000 (subtract from addrs before addr2line)</text>
+<text x="22" y="281" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> frames: 205 MiB usable, 52580 free / 57442 total frames tracked</text>
+<text x="22" y="300" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> frames: alloc/free smoke test passed</text>
+<text x="22" y="319" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> paging: running on our own PML4 (higher half inherited)</text>
+<text x="22" y="338" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> paging: map/translate/unmap self-test passed</text>
+<text x="22" y="357" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> harden: NX on; protected 73 kernel pages (0 huge skipped)</text>
+<text x="22" y="376" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> harden: verified — .text R-X, .rodata/.data NX, HHDM NX, no W+X</text>
+<text x="22" y="395" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> guard: unmapped 4 stack guard pages</text>
+<text x="22" y="414" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> heap: ok — Vec/Box verified; 1288 KiB mapped, 0 bytes live</text>
+<text x="22" y="433" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> pf: probe verified — guard page faults &amp; recovers, mapped memory reads ok</text>
+<text x="22" y="452" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> untyped: retyped 8x256B at 0x1aa000; 2048 B used, 2048 B free of 4096</text>
+<text x="22" y="471" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> untyped: over-budget retype correctly rejected; accounting intact</text>
+<text x="22" y="490" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> caps: CNode cap space (16 slots) holds endpoint+notification; SEND-only copy attenuated &amp;</text>
+<text x="22" y="509" xml:space="preserve"><tspan>       </tspan>   verified</text>
+<text x="22" y="528" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> invoke: retype-&gt;frame, identify, rights-denied, and signal all behaved correctly</text>
+<text x="22" y="547" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> sched: cooperative round-robin across the boot thread + 2 kernel threads</text>
+<text x="22" y="566" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> sched: both threads ran via context switch (A=3, B=3)</text>
+<text x="22" y="585" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> syscall: entering ring 3 (user stub syscalls in and out)</text>
+<text x="22" y="604" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> syscall: ring-3 call — cap=7 label=42 len=1 mr0=0xc0ffee</text>
+<text x="22" y="623" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> syscall: ring-3 exit — returning to the boot thread</text>
+<text x="22" y="642" xml:space="preserve"><tspan fill="#7fb88a">[INFO] </tspan> syscall: back in the boot thread after ring-3 round trip</text>
+</g>
+</svg>
