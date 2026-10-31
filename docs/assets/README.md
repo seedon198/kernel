@@ -8,6 +8,7 @@
 | `brand/social-preview.{svg,png}` | 1280×640 GitHub social preview | `scripts/brand/build_brand.py` |
 | `boot-qemu.svg` | A real UEFI boot, rendered from the serial log | `scripts/brand/term_svg.py` |
 | `architecture.svg` | Layer diagram of the kernel | `scripts/brand/arch_svg.py` |
+| `boot-sequence.svg` | Boot flow from firmware to `kmain`'s steps | `scripts/brand/boot_svg.py` |
 
 All text in the brand SVGs is converted to outlines, so they render the same
 everywhere without web fonts. To regenerate them you need Python with
@@ -24,6 +25,7 @@ cargo xtask iso && scripts/boot-test.sh uefi
 python3 scripts/brand/term_svg.py build/serial-uefi.log docs/assets/boot-qemu.svg
 
 python3 scripts/brand/arch_svg.py docs/assets/architecture.svg
+python3 scripts/brand/boot_svg.py docs/assets/boot-sequence.svg
 ```
 
 The PNG social preview is a screenshot of the SVG at 1280×640. Upload it under

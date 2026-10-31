@@ -23,25 +23,12 @@ specifically for the security goal: the **Trusted Computing Base (TCB)** - the
 code that must be correct for the system to be secure - is as small as we can
 make it, and it is written in safe Rust.
 
-```
-┌───────────────────────────────────────────────────────────────┐
-│  User space (ring 3) - each box is an isolated address space    │
-│                                                                 │
-│  ┌─────────┐ ┌─────────┐ ┌────────┐ ┌───────────┐ ┌──────────┐ │
-│  │ devmgr  │ │ net     │ │ vfs    │ │ security  │ │ native   │ │
-│  │ (PCI)   │ │ (stack) │ │ (fs)   │ │ runtime   │ │ tools    │ │
-│  └────┬────┘ └────┬────┘ └───┬────┘ └─────┬─────┘ └────┬─────┘ │
-│       │           │          │            │            │       │
-│       └───────────┴────IPC (capabilities)─┴────────────┘       │
-├───────────────────────────────┼─────────────────────────────── ┤
-│  Microkernel (ring 0, safe Rust, forbid(unsafe))               │
-│   cap/  ·  mem/  ·  sched/  ·  ipc/  ·  syscall/               │
-├───────────────────────────────┼───────────────────────────────┤
-│  hal (the ONLY unsafe crate): CPU, MMIO, paging, asm           │
-├───────────────────────────────┼───────────────────────────────┤
-│  Limine  ·  UEFI / BIOS firmware  ·  x86-64 hardware           │
-└───────────────────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="../assets/architecture.svg" alt="Magnetite architecture: user space, the syscall boundary, the kernel, hal, and boot" width="820">
+</p>
+
+Solid boxes run on `main` today; dashed boxes are planned, labelled with their
+milestone or issue.
 
 ## Language and the unsafe boundary
 

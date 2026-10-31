@@ -1,36 +1,15 @@
 # Boot Process
 
-> Status: **design** (implemented in milestone M0).
+> Status: **implemented** (M0 onward; updated as `kmain` grows).
 
 ## Sequence
 
-```
-Power on
-  │
-  ▼
-Firmware (UEFI, or legacy BIOS)   loads Limine from the USB/ISO
-  │
-  ▼
-Limine
-  │  • reads boot/limine.conf
-  │  • loads the kernel ELF at its higher-half link address
-  │  • enables long mode + 4-level paging, sets up the HHDM
-  │  • answers the kernel's requests (memory map, framebuffer, RSDP, ...)
-  ▼
-_start   (kernel, Rust, no_std)
-  │  • check Limine base revision → else halt
-  │  • collect Limine responses into a BootInfo struct
-  ▼
-kmain(&BootInfo)
-  │  boot banner: logo, version, firmware, CPU, memory, KASLR slide
-  │  M0: hal serial init → "hello"
-  │  M1: GDT/TSS → IDT → logging; parse memory map & CPU features
-  │  M2: frame allocator → own page tables (W^X, NX, KASLR) → heap
-  │  M3: capability tables → IPC → start the root server
-  │  M4: scheduler → drop to ring 3
-  ▼
-root server (user space) brings up the rest via capabilities + IPC
-```
+<p align="center">
+  <img src="../assets/boot-sequence.svg" alt="Magnetite boot sequence: firmware, Limine, _start, kmain and its steps, then the planned root server" width="820">
+</p>
+
+`kmain`'s steps are numbered in the order they run, each tagged with the
+milestone that added it. The root server (dashed) is planned for M5.
 
 ## Machine state on entry (Limine protocol, x86-64)
 
