@@ -7,27 +7,9 @@
 
 ## Flow
 
-```
-CPU raises vector V
-  │  pushes SS, RSP, RFLAGS, CS, RIP  (+ error code for some vectors)
-  ▼
-vector_stub_V            (generated asm, one per vector)
-  │  • push 0 as a dummy error code if the CPU didn't push one
-  │  • push V
-  │  jmp common_stub
-  ▼
-common_stub              (one shared asm routine)
-  │  • push all 15 GPRs  → the stack now holds a full TrapFrame
-  │  • rdi = rsp (&mut TrapFrame); 16-byte-align rsp
-  │  • call idt_dispatch
-  │  • restore GPRs, drop vector+error_code, iretq
-  ▼
-idt_dispatch(&mut TrapFrame)   (Rust)
-  │  • HANDLERS[vector] set?  → call it
-  │  • else                   → default_exception()
-  ▼
-handler returns → common_stub restores state → iretq resumes
-```
+<p align="center">
+  <img src="../assets/interrupt-flow.svg" alt="Interrupt dispatch: the CPU raises a vector, vector_stub_V pushes an error code and the vector, common_stub saves registers into a TrapFrame and calls idt_dispatch, which runs the registered handler or default_exception, then iretq resumes" width="820">
+</p>
 
 ## TrapFrame
 
@@ -95,18 +77,9 @@ Bring-up (`init_preemption` in `kmain`, after the ring-3 demo):
 
 Every timer interrupt runs the kernel's `timer_interrupt`:
 
-```
-timer IRQ (vector 0x30) → common_stub builds TrapFrame on the current stack
-  │  TICKS += 1
-  │  lapic::eoi()                       ← before switching: the next thread may
-  │                                       run a whole slice before we return
-  │  interrupted ring 3?  → return      (see "Limits" below)
-  │  pick_next(): SCHED.lock(); rotate  ← round-robin, lock released here
-  │  context::switch(cur, next)         ← cur's TrapFrame stays on its stack
-  ▼
-… later, a tick picks cur again: switch returns here → handler returns →
-common_stub restores the TrapFrame → iretq resumes cur where it was
-```
+<p align="center">
+  <img src="../assets/timer-preemption.svg" alt="Timer preemption: the LAPIC timer IRQ builds a TrapFrame, timer_interrupt counts the tick, sends EOI, returns early for ring 3, picks the next thread and switches; a later tick switches back and iretq resumes the thread" width="820">
+</p>
 
 Because the interrupted thread's full register state is already in its
 `TrapFrame`, the ordinary callee-saved [context switch](../adr/0017-threads-and-scheduling.md)

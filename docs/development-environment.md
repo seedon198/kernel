@@ -16,17 +16,9 @@ only needed for occasional validation and for USB-boot testing.
 
 ## How it works
 
-```
- Rust crates ──cargo build --target x86_64-unknown-none──▶ kernel ELF (higher half)
-                                                            │
-                               xtask + Limine + xorriso ────▼
-                                                       kernel.iso
-                                                            │
-                                 qemu-system-x86_64 ◀───────┘
-                                       │
-                                       ├── serial output → your terminal
-                                       └── GDB stub :1234 → gdb / lldb
-```
+<p align="center">
+  <img src="assets/dev-toolchain.svg" alt="Toolchain: cargo builds the kernel ELF, cargo xtask iso makes kernel.iso with Limine and xorriso, cargo xtask run boots it in QEMU with serial output and a GDB stub" width="820">
+</p>
 
 - **Rust is a cross-compiler by default.** `rustup target add x86_64-unknown-none`
   installs a bare-metal (`no_std`, no OS) target. One `cargo build
