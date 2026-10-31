@@ -1,8 +1,8 @@
 //! The system-call ABI: the message-register calling convention.
 //!
-//! Invoking a capability carries a packed [`MessageInfo`] word — the method
+//! Invoking a capability carries a packed [`MessageInfo`] word - the method
 //! **label**, the number of message-register words used (**length**), and the
-//! number of capabilities to transfer (**caps**) — plus the message registers
+//! number of capabilities to transfer (**caps**) - plus the message registers
 //! themselves and the invoked capability id. This mirrors seL4's IPC shape and
 //! is a natural fit for the message payloads blocking IPC adds in M4
 //! ([ADR 0016](../../docs/adr/0016-capability-implementation.md),

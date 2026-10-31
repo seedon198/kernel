@@ -20,8 +20,8 @@ capability operation, like every other object.
 
 **2. Context switch in `hal`, run queue pure.** The register save/restore and
 stack switch are a small assembly routine in `hal` (save callee-saved registers
-+ `rsp` into the current TCB, load the next). The *scheduler* — the round-robin
-run queue and the pick-next decision — is pure logic over thread ids, so it is
++ `rsp` into the current TCB, load the next). The *scheduler* - the round-robin
+run queue and the pick-next decision - is pure logic over thread ids, so it is
 host-testable; the kernel wires it to the `hal` switch.
 
 **3. Round-robin to start.** A single run queue; each ready thread gets a time

@@ -96,7 +96,7 @@ impl Rights {
         Self(self.0 | other.0)
     }
 
-    /// The intersection of two rights sets — the core of attenuation: the
+    /// The intersection of two rights sets - the core of attenuation: the
     /// result can never contain a right absent from either operand.
     #[must_use]
     pub const fn intersection(self, other: Self) -> Self {
@@ -115,7 +115,7 @@ impl core::ops::BitOr for Rights {
 /// held over it and an optional badge.
 ///
 /// `Obj` is the kernel's handle to the object (an index, a physical address, a
-/// typed id — the kernel chooses); this crate treats it opaquely.
+/// typed id - the kernel chooses); this crate treats it opaquely.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Capability<Obj> {
     /// The object this capability names.
@@ -145,7 +145,7 @@ impl<Obj: Copy> Capability<Obj> {
 
     /// Derive a weaker capability holding exactly `want` rights.
     ///
-    /// Returns `None` if `want` is not a subset of the current rights — a
+    /// Returns `None` if `want` is not a subset of the current rights - a
     /// capability can only be **attenuated**, never widened. The badge is
     /// preserved.
     #[must_use]

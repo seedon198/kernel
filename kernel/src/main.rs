@@ -8,10 +8,11 @@
 //! This crate is `#![deny(unsafe_code)]`. All `unsafe` is confined to two
 //! places, both CI-enforced (see `docs/adr/0007-unsafe-policy.md`): the `hal`
 //! crate (hardware access) and the [`boot`] module (bootloader/linker glue).
-//! Kernel logic — [`kmain`] and below — contains no `unsafe`.
+//! Kernel logic - [`kmain`] and below - contains no `unsafe`.
 
 extern crate alloc;
 
+mod banner;
 mod boot;
 mod log;
 
@@ -50,7 +51,7 @@ static A_TICKS: AtomicU64 = AtomicU64::new(0);
 static B_TICKS: AtomicU64 = AtomicU64::new(0);
 
 /// LAPIC timer vector (#80): the first vector above the remapped (and masked)
-/// legacy PIC range 0x20–0x2F.
+/// legacy PIC range 0x20-0x2F.
 const TIMER_VECTOR: u8 = 0x30;
 /// Timer interrupt rate: 100 Hz, i.e. a 10 ms round-robin time slice.
 const TIMER_HZ: u32 = 100;
@@ -88,7 +89,7 @@ static SYSCALLS: AtomicU64 = AtomicU64::new(0);
 const HEAP_BASE: u64 = 0xffff_ff80_0000_0000;
 /// Upper bound of the heap window: the start of the kernel/KASLR top-2-GiB
 /// region. The heap never grows into or past this, keeping it clear of the
-/// kernel image. (Leaves ~510 GiB of heap space — ample.)
+/// kernel image. (Leaves ~510 GiB of heap space - ample.)
 const HEAP_LIMIT: u64 = 0xffff_ffff_8000_0000;
 /// Minimum bytes mapped per growth (64 frames).
 const HEAP_CHUNK: u64 = 256 * 1024;
@@ -116,6 +117,11 @@ fn kmain(boot_info: &BootInfo) -> ! {
         });
     }
 
+    // The banner and system summary come first; everything they show is known
+    // on entry (boot handoff, CPUID) or stamped in at build time.
+    let cpu = hal::cpuid::detect();
+    banner::print(boot_info, &cpu);
+
     info!("hello from the kernel");
     debug!("boot info received at {:p}", boot_info);
 
@@ -125,39 +131,17 @@ fn kmain(boot_info: &BootInfo) -> ! {
     hal::idt::init();
     info!("idt: installed interrupt descriptor table");
 
-    // CPU identity and required features.
-    let cpu = hal::cpuid::detect();
-    info!("cpu: {} \"{}\"", cpu.vendor(), cpu.brand());
+    // Required CPU features (identity and the full flag list are in the banner).
     let f = &cpu.features;
-    info!(
-        "cpu features: nx={} sse2={} smep={} smap={} x2apic={} xsave={} pcid={} 1gib={} rdrand={} invtsc={} syscall={}",
-        f.nx, f.sse2, f.smep, f.smap, f.x2apic, f.xsave, f.pcid, f.gib_pages, f.rdrand, f.invariant_tsc, f.syscall
-    );
     assert!(f.nx, "CPU lacks NX (No-Execute); required for W^X");
     assert!(f.sse2, "CPU lacks SSE2; required baseline for x86-64");
 
     // Supervisor-access protections (M2, #41): block the kernel from executing
-    // or (SMAP) reading user-accessible pages. Safe now — no user pages exist.
+    // or (SMAP) reading user-accessible pages. Safe now - no user pages exist.
     let (smep, smap) = hal::cpu::enable_smep_smap(f.smep, f.smap);
     info!("cpu protections: smep={smep} smap={smap}");
 
-    // Physical memory summary (full map consumed by the allocator in M2).
-    info!(
-        "memory: {} MiB usable / {} MiB total across {} regions",
-        boot_info.usable_bytes() / (1024 * 1024),
-        boot_info.total_bytes() / (1024 * 1024),
-        boot_info.regions().len()
-    );
-    info!(
-        "layout: hhdm={:#x}  kernel phys={:#x} virt={:#x}",
-        boot_info.hhdm_offset, boot_info.kernel_phys_base, boot_info.kernel_virt_base
-    );
-    // KASLR (#47): the kernel is a PIE that Limine slides to a random base each
-    // boot. Log the slide so backtrace addresses can be mapped back to the
-    // link base for `llvm-addr2line` (subtract the slide first).
-    const KERNEL_LINK_BASE: u64 = 0xffff_ffff_8000_0000;
-    let slide = boot_info.kernel_virt_base.wrapping_sub(KERNEL_LINK_BASE);
-    info!("kaslr: kernel slide={slide:#x} (subtract from addrs before addr2line)");
+    // Memory, layout and the KASLR slide (#47) are reported in the banner.
 
     // Physical frame allocator (M2, #38). Translate the memory map into the
     // allocator's region view (only RegionKind::Usable is handed out), then
@@ -192,7 +176,7 @@ fn kmain(boot_info: &BootInfo) -> ! {
     demo_capabilities(boot_info);
 
     // Capability invocation (M3, #57): dispatch rights-checked methods on
-    // capabilities — the surface M4's syscall entry will call.
+    // capabilities - the surface M4's syscall entry will call.
     demo_invoke(boot_info);
 
     // Threads & cooperative round-robin scheduling (M4, #78): two kernel
@@ -205,7 +189,8 @@ fn kmain(boot_info: &BootInfo) -> ! {
 
     // Preemptive scheduling (M4, #80): the LAPIC timer drives the round-robin
     // scheduler, so threads are time-sliced without yielding.
-    if init_preemption() {
+    let preemptive = init_preemption();
+    if preemptive {
         demo_preemption();
     }
 
@@ -215,6 +200,18 @@ fn kmain(boot_info: &BootInfo) -> ! {
     hal::idt::breakpoint();
     info!("resumed after breakpoint");
 
+    // One line with every protection now in force, each verified above.
+    let slide = boot_info
+        .kernel_virt_base
+        .wrapping_sub(banner::KERNEL_LINK_BASE);
+    info!(
+        "ready: W^X+NX verified, smep={smep} smap={smap}, kaslr slide={slide:#x}, guard pages, {}",
+        if preemptive {
+            "preemptive scheduling"
+        } else {
+            "cooperative scheduling"
+        }
+    );
     info!("kernel: idling (timer running; no user tasks yet)");
 
     hal::cpu::halt_loop();
@@ -358,7 +355,7 @@ fn harden_memory(boot_info: &BootInfo) {
         ok &= f.contains(Flags::NO_EXECUTE);
     }
     assert!(ok, "harden: W^X/NX invariants not satisfied");
-    info!("harden: verified — .text R-X, .rodata/.data NX, HHDM NX, no W+X");
+    info!("harden: verified - .text R-X, .rodata/.data NX, HHDM NX, no W+X");
 }
 
 /// Unmap the stack guard pages so an overflow of a HAL-owned stack faults.
@@ -432,7 +429,7 @@ fn init_heap() {
     let (live, mapped) = HEAP.stats();
     if ok {
         info!(
-            "heap: ok — Vec/Box verified; {} KiB mapped, {} bytes live",
+            "heap: ok - Vec/Box verified; {} KiB mapped, {} bytes live",
             mapped / 1024,
             live
         );
@@ -468,7 +465,7 @@ fn init_fault_diagnostics(boot_info: &BootInfo) {
     let text_ok = !probe_read(s.text.0);
     assert!(guard_faults, "guard page should be unmapped");
     assert!(text_ok, "mapped .text should be readable");
-    info!("pf: probe verified — guard page faults & recovers, mapped memory reads ok");
+    info!("pf: probe verified - guard page faults & recovers, mapped memory reads ok");
 
     // Show the classifier naming a few representative addresses.
     let samples = [
@@ -825,8 +822,8 @@ fn exit_current() -> ! {
 /// kernel stack. If it switches away, the interrupted state stays saved in the
 /// `TrapFrame` on that stack; when the thread is next scheduled, `switch`
 /// returns here and the stub's `iretq` resumes it exactly where it was. No
-/// lock can be held at this point — every `SpinLock` holder runs with
-/// interrupts off — so taking the scheduler lock cannot deadlock.
+/// lock can be held at this point - every `SpinLock` holder runs with
+/// interrupts off - so taking the scheduler lock cannot deadlock.
 fn timer_interrupt(frame: &mut hal::idt::TrapFrame) {
     TICKS.fetch_add(1, Ordering::Relaxed);
     // EOI before switching: the next thread may run for a whole time slice
@@ -912,7 +909,7 @@ fn syscall_handler(args: &hal::syscall::SyscallArgs) -> u64 {
     if n == 0 {
         let mi = capability::MessageInfo::from_bits(args.msg_info);
         info!(
-            "syscall: ring-3 call — cap={} label={} len={} mr0={:#x}",
+            "syscall: ring-3 call - cap={} label={} len={} mr0={:#x}",
             args.cap,
             mi.label(),
             mi.length(),
@@ -920,7 +917,7 @@ fn syscall_handler(args: &hal::syscall::SyscallArgs) -> u64 {
         );
         0
     } else {
-        info!("syscall: ring-3 exit — returning to the boot thread");
+        info!("syscall: ring-3 exit - returning to the boot thread");
         hal::context::resume(BOOT_RETURN.rsp()); // diverges; never returns here
     }
 }
@@ -945,7 +942,7 @@ fn demo_syscall(boot_info: &BootInfo) {
         return;
     };
     // User stub: `syscall; syscall; jmp .` (the jmp is a safety net; the second
-    // syscall never returns — the handler resumes the boot thread).
+    // syscall never returns - the handler resumes the boot thread).
     hal::object::write_phys(code.addr(), hhdm, &[0x0f, 0x05, 0x0f, 0x05, 0xeb, 0xfe]);
 
     {

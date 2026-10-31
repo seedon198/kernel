@@ -36,7 +36,7 @@ only needed for occasional validation and for USB-boot testing.
   custom target spec (e.g. to disable the red zone or SSE), that uses
   `-Zbuild-std` on a **nightly** toolchain, pinned in `rust-toolchain.toml`.
 - **QEMU** emulates a full x86-64 PC. On Apple Silicon it uses software
-  emulation (TCG) — slower than native but deterministic and easy to debug.
+  emulation (TCG) - slower than native but deterministic and easy to debug.
 
 ## macOS (Apple Silicon and Intel)
 
@@ -115,7 +115,7 @@ Write the ISO to a USB stick and boot a generic x86-64 PC from it. Watch the
 serial port (USB-serial adapter) or the framebuffer.
 
 ```sh
-# macOS — verify the disk number with `diskutil list` first!
+# macOS - verify the disk number with `diskutil list` first!
 sudo dd if=build/kernel.iso of=/dev/rdiskN bs=4m
 ```
 
@@ -128,6 +128,6 @@ sudo dd if=build/kernel.iso of=/dev/rdiskN bs=4m
 |---|---|
 | `error[E0463]: can't find crate for core` | missing `rustup target add x86_64-unknown-none` |
 | `-Zbuild-std` errors | not on the pinned nightly, or `rust-src` not installed |
-| QEMU reboots in a loop | triple fault — rerun with `-d int,cpu_reset -no-reboot` |
+| QEMU reboots in a loop | triple fault - rerun with `-d int,cpu_reset -no-reboot` |
 | Black screen, no serial | check `limine.conf` path and that the kernel is on the ISO |
-| `unsafe` won't compile in `kernel` | intended — `unsafe` belongs in `hal` (see ADR 0007) |
+| `unsafe` won't compile in `kernel` | intended - `unsafe` belongs in `hal` (see ADR 0007) |

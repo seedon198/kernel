@@ -20,7 +20,7 @@
 1. **Docs live next to code, in this repository**, and change in the same PR
    as the code they describe.
 2. Any significant or hard-to-reverse decision gets an **ADR**
-   ([template](adr/0000-template.md)) — and is discussed with the maintainer
+   ([template](adr/0000-template.md)) - and is discussed with the maintainer
    before being accepted.
 3. Each subsystem gets an `architecture/` page once it exists.
 4. Cite the spec. When code implements hardware behaviour, reference the manual

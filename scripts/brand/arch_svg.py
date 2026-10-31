@@ -41,7 +41,7 @@ y = 24
 layer(y, 112, "User space · ring 3", "isolated servers, least privilege")
 boxes(y + 38, 62, [
     ("User tasks", ["ring-3 entry works", "first task: #82"], False),
-    ("Drivers", ["devmgr, virtio, NIC", "as servers (M5–M6)"], True),
+    ("Drivers", ["devmgr, virtio, NIC", "as servers (M5-M6)"], True),
     ("Network stack", ["sandboxed parsing", "(M6)"], True),
     ("Filesystem", ["VFS server", "(M5)"], True),
     ("Security tools", ["scripting runtime,", "native tools (M7)"], True),

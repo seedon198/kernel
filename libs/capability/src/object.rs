@@ -1,6 +1,6 @@
 //! Kernel object references and **Untyped-memory** accounting.
 //!
-//! A capability names a kernel object by an [`ObjectRef`] — its [`ObjectKind`]
+//! A capability names a kernel object by an [`ObjectRef`] - its [`ObjectKind`]
 //! and the physical address of its storage. Object storage comes from
 //! retyping [`Untyped`] memory (ADR 0016): `Untyped` is a physical region with
 //! a bump **watermark**; carving advances it and is never individually
@@ -35,7 +35,7 @@ pub enum ObjectKind {
 /// storage (in retyped Untyped memory, reached by the kernel via the HHDM).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ObjectRef {
-    /// What kind of object this is — tells the kernel how to interpret it.
+    /// What kind of object this is - tells the kernel how to interpret it.
     pub kind: ObjectKind,
     /// Physical address of the object's storage.
     pub phys: u64,
@@ -123,7 +123,7 @@ const fn align_up(addr: u64, align: u64) -> Option<u64> {
 ///
 /// Objects are carved by advancing [`watermark`](Self::watermark) from
 /// [`base`](Self::base); nothing is freed individually (reclaim the whole
-/// region by revoking it). This type does the arithmetic only — the kernel
+/// region by revoking it). This type does the arithmetic only - the kernel
 /// zeroes the carved memory when it retypes.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

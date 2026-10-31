@@ -67,7 +67,7 @@ trap cleanup EXIT
 # Poll twice a second for the marker, or until QEMU exits or we time out.
 for ((i = 0; i < TIMEOUT_SECS * 2; i++)); do
     if grep -qF "$MARKER" "$LOG" 2>/dev/null; then
-        echo "boot-test[$MODE]: PASS — found \"$MARKER\""
+        echo "boot-test[$MODE]: PASS - found \"$MARKER\""
         exit 0
     fi
     if ! kill -0 "$qpid" 2>/dev/null; then
@@ -77,7 +77,7 @@ for ((i = 0; i < TIMEOUT_SECS * 2; i++)); do
     sleep 0.5
 done
 
-echo "boot-test[$MODE]: FAIL — marker not seen within ${TIMEOUT_SECS}s. Serial log:" >&2
+echo "boot-test[$MODE]: FAIL - marker not seen within ${TIMEOUT_SECS}s. Serial log:" >&2
 echo "---------------------------------------------------------------" >&2
 cat "$LOG" >&2 || true
 echo "---------------------------------------------------------------" >&2

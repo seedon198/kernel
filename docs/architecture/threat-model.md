@@ -13,10 +13,10 @@ testing systems you own or have written permission to test, CTFs, lab work,
 and learning OS/security internals. It is **not** for unauthorized access to
 systems or data. See [SECURITY.md](../../SECURITY.md).
 
-## Part 1 — Threats *to* the OS (what we harden against)
+## Part 1 - Threats *to* the OS (what we harden against)
 
 The memory-level mitigations below (W^X, NX, SMEP/SMAP, KASLR, guard pages, zeroed
-frames, per-address-space isolation) are **implemented as of milestone M2** — see
+frames, per-address-space isolation) are **implemented as of milestone M2** - see
 [memory-management.md](memory-management.md). A ✓ marks mitigations already in the
 kernel; others are design commitments realized in later milestones.
 
@@ -24,8 +24,8 @@ kernel; others are design commitments realized in later milestones.
 |---|---|---|
 | Kernel integrity (TCB) | Exploit in a driver/parser escalating to ring 0 | Microkernel: drivers/parsers are isolated user servers (ADR 0004); kernel is safe Rust (ADR 0001/0007) |
 | Memory safety | UAF, buffer overflow, type confusion | Rust `forbid(unsafe)` outside `hal`; the few `unsafe` blocks audited ✓ |
-| Task isolation | One task reading/writing another's memory | Per-address-space paging ✓ (own page tables, M2); capability model — no ambient authority, attenuation-only ✓ (M3); per-task enforcement at ring 3 lands with M4 |
-| CPU availability | A thread that never yields (buggy or hostile) starving every other thread | LAPIC-timer preemption, 10 ms round-robin slices ✓ for kernel threads (M4, #80); interrupt-safe locks keep preemption deadlock-free. Preempting ring 3 needs per-thread kernel stacks — lands with the first user task (#82) |
+| Task isolation | One task reading/writing another's memory | Per-address-space paging ✓ (own page tables, M2); capability model - no ambient authority, attenuation-only ✓ (M3); per-task enforcement at ring 3 lands with M4 |
+| CPU availability | A thread that never yields (buggy or hostile) starving every other thread | LAPIC-timer preemption, 10 ms round-robin slices ✓ for kernel threads (M4, #80); interrupt-safe locks keep preemption deadlock-free. Preempting ring 3 needs per-thread kernel stacks - lands with the first user task (#82) |
 | Code injection | Overwriting code, running injected code | W^X + NX enforced and verified; HHDM non-executable; SMEP/SMAP enabled ✓ (M2). `Frame` caps separate map/exec rights (later) |
 | Exploit reliability | Predictable kernel addresses | Kernel KASLR ✓; stack guard pages ✓; zeroed-on-alloc frames ✓ (M2) |
 | Hostile input | Malicious packets, filesystems, images | Parsed only in sandboxed servers; fuzzed in CI |
@@ -40,7 +40,7 @@ kernel; others are design commitments realized in later milestones.
 - **Hostile:** all external input (network, storage, USB) and anything a
   native tool interacts with on a target.
 
-## Part 2 — The OS *as* a security tool (what it is allowed to do)
+## Part 2 - The OS *as* a security tool (what it is allowed to do)
 
 The system intentionally provides capabilities that are "offensive":
 
@@ -48,7 +48,7 @@ The system intentionally provides capabilities that are "offensive":
 - port/host scanning primitives,
 - a fuzzing harness and scripting runtime for writing tooling.
 
-These are gated the same way as everything else — a task must **hold the
+These are gated the same way as everything else - a task must **hold the
 capability** to use them (see [security model](security-model.md)). They are
 powerful, not unconfined.
 
@@ -69,5 +69,5 @@ powerful, not unconfined.
 - Physical attacks (DMA/Thunderbolt, cold boot, evil maid) beyond basic IOMMU
   use later.
 - Microarchitectural side channels (Spectre/Meltdown-class).
-- Defending the *targets* of the offensive tooling — that is the user's
+- Defending the *targets* of the offensive tooling - that is the user's
   responsibility and authorization.

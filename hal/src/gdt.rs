@@ -4,7 +4,7 @@
 //! valid 64-bit code/data descriptors, user-mode descriptors (ordered for a
 //! future `syscall`/`sysret`, Intel SDM Vol. 3A §5.8.8), and a TSS. The TSS
 //! holds the stacks the CPU switches to on privilege changes (`rsp0`) and on
-//! specific vectors via the Interrupt Stack Table (IST) — we dedicate IST
+//! specific vectors via the Interrupt Stack Table (IST) - we dedicate IST
 //! entries to the double fault, NMI, and machine check so those always run on a
 //! known-good stack even if the kernel stack is corrupt.
 //!

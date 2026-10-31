@@ -19,9 +19,9 @@ body:
     attributes:
       label: Does this touch the TCB (kernel or hal)?
       options:
-        - "No — user-space server or tool"
-        - "Yes — kernel"
-        - "Yes — hal (adds/changes unsafe)"
+        - "No - user-space server or tool"
+        - "Yes - kernel"
+        - "Yes - hal (adds/changes unsafe)"
         - "Not sure"
     validations:
       required: true

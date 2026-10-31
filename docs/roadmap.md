@@ -6,9 +6,9 @@ GitHub: <https://github.com/seedon198/magnetite/milestones>.
 
 Two themes run through every milestone:
 
-- **Hardening** — the privileged core stays tiny and memory-safe; every
+- **Hardening** - the privileged core stays tiny and memory-safe; every
   addition is justified against the [threat model](architecture/threat-model.md).
-- **Offense enablement** — the system is steadily shaped toward running native
+- **Offense enablement** - the system is steadily shaped toward running native
   security tooling.
 
 ---
@@ -74,7 +74,7 @@ Synchronous IPC (blocking `Endpoint` send/receive/call) and the ring-3
 
 ## M6: Devices & network
 
-- [ ] virtio drivers (net, block) as servers — QEMU bring-up
+- [ ] virtio drivers (net, block) as servers - QEMU bring-up
 - [ ] Real NIC drivers (Intel e1000e / Realtek) for generic laptops
 - [ ] NVMe and xHCI (USB) drivers as servers
 - [ ] **Sandboxed** network stack (Ethernet/ARP/IPv4/IPv6/TCP/UDP) in a server
@@ -89,7 +89,7 @@ Synchronous IPC (blocking `Endpoint` send/receive/call) and the ring-3
 
 ## Beyond
 
-Wireless (802.11 + firmware — hard), storage filesystems, a shell, a package
+Wireless (802.11 + firmware - hard), storage filesystems, a shell, a package
 format for native tools, reproducible builds, optional formal verification of
 the capability core, self-hosting.
 

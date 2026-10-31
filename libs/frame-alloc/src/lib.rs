@@ -5,7 +5,7 @@
 //! Pure bitmap physical-frame allocator.
 //!
 //! This crate contains **no** `unsafe` and touches no hardware. It manages a
-//! bitmap — one bit per 4 KiB physical frame, `1` = used — that the caller
+//! bitmap - one bit per 4 KiB physical frame, `1` = used - that the caller
 //! provides, and decides which frame to hand out. The [`hal`](../hal) layer
 //! backs the bitmap with real memory through the HHDM and zeroes handed-out
 //! frames; keeping the *policy* here, free of `unsafe`, makes it unit-testable
@@ -66,7 +66,7 @@ pub struct Region {
 pub enum FreeError {
     /// The frame lies outside the range the allocator tracks.
     OutOfRange,
-    /// The frame was already free — a double free.
+    /// The frame was already free - a double free.
     AlreadyFree,
 }
 
@@ -134,7 +134,7 @@ pub struct FrameAllocator<'a> {
     hint: usize,
     /// Count of currently-free frames (maintained incrementally).
     free: usize,
-    /// Count of frames that belong to usable RAM — the managed pool size, fixed
+    /// Count of frames that belong to usable RAM - the managed pool size, fixed
     /// after construction.
     usable: usize,
 }

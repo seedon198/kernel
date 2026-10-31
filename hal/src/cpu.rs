@@ -23,7 +23,7 @@ pub fn halt_loop() -> ! {
 /// which may preempt the caller) and then returns. With interrupts disabled it
 /// waits for an NMI/SMI; callers that want to idle must enable them first.
 pub fn halt() {
-    // SAFETY: as in `halt_loop` — `hlt` only pauses until the next interrupt.
+    // SAFETY: as in `halt_loop` - `hlt` only pauses until the next interrupt.
     unsafe {
         asm!("hlt", options(nomem, nostack, preserves_flags));
     }
@@ -60,7 +60,7 @@ pub fn interrupts_enabled() -> bool {
 /// interrupt flag to what it was on entry (never enabling interrupts that were
 /// already disabled).
 ///
-/// Used for critical sections that are not a single lock — e.g. picking the
+/// Used for critical sections that are not a single lock - e.g. picking the
 /// next thread and switching to it, which must not be split by a timer
 /// preemption. A context switch inside `f` is fine: each thread restores its
 /// own saved flag when it eventually returns from here.
@@ -104,9 +104,9 @@ pub(crate) unsafe fn wrmsr(msr: u32, value: u64) {
     }
 }
 
-/// `CR4.SMEP` — Supervisor Mode Execution Prevention (bit 20).
+/// `CR4.SMEP` - Supervisor Mode Execution Prevention (bit 20).
 const CR4_SMEP: u64 = 1 << 20;
-/// `CR4.SMAP` — Supervisor Mode Access Prevention (bit 21).
+/// `CR4.SMAP` - Supervisor Mode Access Prevention (bit 21).
 const CR4_SMAP: u64 = 1 << 21;
 
 /// Enable SMEP and/or SMAP in `CR4`, where the CPU supports them.

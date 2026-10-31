@@ -7,7 +7,7 @@
 //!
 //! ## `unsafe` in this module
 //!
-//! This module carries `#![allow(unsafe_code)]` — the only place outside `hal`
+//! This module carries `#![allow(unsafe_code)]` - the only place outside `hal`
 //! permitted to, and CI-enforced to stay that way (see
 //! `docs/adr/0007-unsafe-policy.md`). The `unsafe` here is limited to linker
 //! glue: the `#[unsafe(link_section = ...)]` placement of the Limine request
@@ -16,11 +16,12 @@
 //! through `hal`.
 #![allow(unsafe_code)]
 
-use boot_info::{BootInfo, Framebuffer, MemoryRegion, RegionKind};
+use boot_info::{BootInfo, Firmware, Framebuffer, MemoryRegion, RegionKind, ShortStr};
+use limine::firmware_type::FirmwareType;
 use limine::memory_map::EntryType;
 use limine::request::{
-    ExecutableAddressRequest, FramebufferRequest, HhdmRequest, MemoryMapRequest, RequestsEndMarker,
-    RequestsStartMarker,
+    BootloaderInfoRequest, ExecutableAddressRequest, FirmwareTypeRequest, FramebufferRequest,
+    HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker,
 };
 use limine::BaseRevision;
 
@@ -52,6 +53,16 @@ static KERNEL_ADDRESS: ExecutableAddressRequest = ExecutableAddressRequest::new(
 #[used]
 #[unsafe(link_section = ".requests")]
 static FRAMEBUFFER: FramebufferRequest = FramebufferRequest::new();
+
+/// The bootloader's name and version, for the boot banner.
+#[used]
+#[unsafe(link_section = ".requests")]
+static BOOTLOADER_INFO: BootloaderInfoRequest = BootloaderInfoRequest::new();
+
+/// Whether we were started from BIOS or UEFI, for the boot banner.
+#[used]
+#[unsafe(link_section = ".requests")]
+static FIRMWARE_TYPE: FirmwareTypeRequest = FirmwareTypeRequest::new();
 
 /// Markers bounding the request section so the bootloader's scan is fast.
 #[used]
@@ -107,6 +118,18 @@ pub extern "C" fn _start() -> ! {
         });
     }
 
+    if let Some(info) = BOOTLOADER_INFO.get_response() {
+        boot_info.bootloader_name = ShortStr::new(info.name());
+        boot_info.bootloader_version = ShortStr::new(info.version());
+    }
+    if let Some(fw) = FIRMWARE_TYPE.get_response() {
+        boot_info.firmware = match fw.firmware_type() {
+            FirmwareType::X86_BIOS => Firmware::Bios,
+            FirmwareType::UEFI_32 | FirmwareType::UEFI_64 => Firmware::Uefi,
+            _ => Firmware::Unknown,
+        };
+    }
+
     crate::kmain(&boot_info)
 }
 
@@ -126,11 +149,11 @@ extern "C" {
 /// apply W^X permissions (#40).
 #[derive(Clone, Copy)]
 pub struct KernelSections {
-    /// `.text` — executable code (maps R-X).
+    /// `.text` - executable code (maps R-X).
     pub text: (u64, u64),
-    /// `.rodata` — read-only data (maps R, NX).
+    /// `.rodata` - read-only data (maps R, NX).
     pub rodata: (u64, u64),
-    /// `.data` + `.bss` — writable data (maps RW, NX).
+    /// `.data` + `.bss` - writable data (maps RW, NX).
     pub data: (u64, u64),
 }
 

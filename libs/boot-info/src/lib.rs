@@ -77,6 +77,65 @@ pub struct Framebuffer {
     pub blue_shift: u8,
 }
 
+/// The platform firmware that started the bootloader.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Firmware {
+    /// Legacy PC BIOS.
+    Bios,
+    /// UEFI (32- or 64-bit).
+    Uefi,
+    /// Not reported by the bootloader.
+    Unknown,
+}
+
+impl Firmware {
+    /// A short display name.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Firmware::Bios => "BIOS",
+            Firmware::Uefi => "UEFI",
+            Firmware::Unknown => "unknown firmware",
+        }
+    }
+}
+
+/// A short UTF-8 string held inline, so text from the bootloader (its name and
+/// version) is copied out of bootloader-reclaimable memory like the memory map.
+/// Input longer than `N` bytes is truncated at a character boundary.
+#[derive(Clone, Copy)]
+pub struct ShortStr<const N: usize> {
+    buf: [u8; N],
+    len: usize,
+}
+
+impl<const N: usize> ShortStr<N> {
+    /// The empty string.
+    pub const EMPTY: Self = Self {
+        buf: [0; N],
+        len: 0,
+    };
+
+    /// Copy `s`, truncating to at most `N` bytes on a character boundary.
+    #[must_use]
+    pub fn new(s: &str) -> Self {
+        let mut len = s.len().min(N);
+        while !s.is_char_boundary(len) {
+            len -= 1;
+        }
+        let mut buf = [0; N];
+        buf[..len].copy_from_slice(&s.as_bytes()[..len]);
+        Self { buf, len }
+    }
+
+    /// The stored text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        // Always valid: built from a `&str` cut at a character boundary.
+        core::str::from_utf8(&self.buf[..self.len]).unwrap_or("")
+    }
+}
+
 /// Information handed from the boot code to `kmain`.
 #[derive(Clone, Copy)]
 pub struct BootInfo {
@@ -88,6 +147,12 @@ pub struct BootInfo {
     pub kernel_virt_base: u64,
     /// The framebuffer, if the bootloader provided one.
     pub framebuffer: Option<Framebuffer>,
+    /// The firmware that started the bootloader.
+    pub firmware: Firmware,
+    /// The bootloader's name (e.g. `Limine`), empty if not reported.
+    pub bootloader_name: ShortStr<32>,
+    /// The bootloader's version string, empty if not reported.
+    pub bootloader_version: ShortStr<32>,
     regions: [MemoryRegion; MAX_MEMORY_REGIONS],
     region_count: usize,
 }
@@ -107,6 +172,9 @@ impl BootInfo {
             kernel_phys_base: 0,
             kernel_virt_base: 0,
             framebuffer: None,
+            firmware: Firmware::Unknown,
+            bootloader_name: ShortStr::EMPTY,
+            bootloader_version: ShortStr::EMPTY,
             regions: [MemoryRegion::EMPTY; MAX_MEMORY_REGIONS],
             region_count: 0,
         }
@@ -130,7 +198,7 @@ impl BootInfo {
     }
 
     /// Total bytes of actual RAM (all regions except firmware-reserved,
-    /// framebuffer, and known-bad memory — i.e. excluding MMIO holes).
+    /// framebuffer, and known-bad memory - i.e. excluding MMIO holes).
     #[must_use]
     pub fn total_bytes(&self) -> u64 {
         self.regions()
@@ -204,6 +272,15 @@ mod tests {
         assert_eq!(bi.usable_bytes(), 0);
         assert_eq!(bi.total_bytes(), 0);
         assert_eq!(bi.highest_address(), 0);
+    }
+
+    #[test]
+    fn short_str_copies_and_truncates_on_char_boundary() {
+        assert_eq!(ShortStr::<8>::new("Limine").as_str(), "Limine");
+        assert_eq!(ShortStr::<4>::new("10.1.2").as_str(), "10.1");
+        // "é" is two bytes; a 2-byte cut would split it, so it backs off to 1.
+        assert_eq!(ShortStr::<2>::new("aé").as_str(), "a");
+        assert_eq!(ShortStr::<8>::EMPTY.as_str(), "");
     }
 
     const MIB: u64 = 1024 * 1024;

@@ -9,8 +9,8 @@ guide explains how we work.
 - **`main` must always build and boot.** Every change lands via a pull request
   that passes CI.
 - **Docs are part of the change.** Update the matching page in
-  [`docs/`](docs/README.md) — and the [threat model](docs/architecture/threat-model.md)
-  for security-relevant changes — in the same PR.
+  [`docs/`](docs/README.md) - and the [threat model](docs/architecture/threat-model.md)
+  for security-relevant changes - in the same PR.
 - **Authorized use only.** This project is for authorized security testing,
   research and education. Contributions must respect the ethical boundary in
   the [threat model](docs/architecture/threat-model.md): dual-use primitives
@@ -24,6 +24,13 @@ not decided in a PR after the fact. Open a `type:research` issue or a
 Discussion, agree an approach, and record it as an
 [ADR](docs/adr/README.md). This applies especially to the security model, the
 syscall/IPC surface, and anything touching the TCB.
+
+## House style: no en or em dashes
+
+Use a plain hyphen (`-`) everywhere, in code, comments and docs, including for
+ranges (`0x20-0x2F`, `M5-M6`). En dashes and em dashes are not allowed, and CI
+(`scripts/check-dashes.sh`) rejects them. In Markdown and doc comments, never
+start a line with `- ` mid-sentence: that turns it into a list item.
 
 ## The `unsafe` rule
 
@@ -44,6 +51,7 @@ not be merged. In `hal`, every `unsafe` block needs a `// SAFETY:` comment.
    - `cargo clippy --all-targets -- -D warnings`
    - `cargo xtask test`
    - the kernel boots: `cargo xtask run`
+   - `scripts/check-unsafe.sh` and `scripts/check-dashes.sh`
 4. Open a PR referencing the issue (`Closes #12`) and fill in the template.
 5. Squash-merge after review and green CI.
 

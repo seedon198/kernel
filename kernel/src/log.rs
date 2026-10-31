@@ -16,7 +16,7 @@ use hal::sync::SpinLock;
 
 /// Log severity, ordered from most to least severe.
 ///
-/// Not every variant is constructed yet — the full set is used across M1 as
+/// Not every variant is constructed yet - the full set is used across M1 as
 /// subsystems start logging at their natural levels.
 #[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -82,6 +82,17 @@ pub fn write(level: Level, args: core::fmt::Arguments) {
     // Second sink: the framebuffer console (a no-op until initialized). Its own
     // lock is taken after the serial lock is released, so the two never nest.
     let _ = writeln!(hal::framebuffer::Writer, "[{}] {}", level.as_str(), args);
+}
+
+/// Write one line to every sink with no level prefix, regardless of the
+/// current level. For the boot banner, not for log records.
+pub fn raw(args: core::fmt::Arguments) {
+    use core::fmt::Write;
+    {
+        let mut serial = SERIAL.lock();
+        let _ = writeln!(serial, "{args}");
+    }
+    let _ = writeln!(hal::framebuffer::Writer, "{args}");
 }
 
 /// Emit a log record at an explicit [`Level`]. The level-specific macros

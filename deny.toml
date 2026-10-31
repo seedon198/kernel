@@ -1,4 +1,4 @@
-# cargo-deny configuration — supply-chain policy (ADR 0007, threat model).
+# cargo-deny configuration - supply-chain policy (ADR 0007, threat model).
 # Run locally with `cargo deny check`.
 
 [graph]

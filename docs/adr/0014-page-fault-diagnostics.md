@@ -9,7 +9,7 @@ M2 (#42) makes page faults legible: decode the #PF error code, say *where*
 the faulting address lives (kernel section, HHDM, heap, a stack guard,
 unmapped), and show a backtrace. It should also distinguish a guard-page hit
 and a permission (W^X/NX) violation. A standing gap from #40/#41 was the lack
-of a *negative* test — code that actually triggers a protection fault — because
+of a *negative* test - code that actually triggers a protection fault - because
 the #PF handler halts.
 
 ## Decision

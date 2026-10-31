@@ -38,7 +38,7 @@ and rely on boot-testing in CI to catch encoding mistakes.
 
 If a later component (e.g. full paging or ACPI/APIC) proves disproportionately
 error-prone or slow to hand-roll, we may revisit *that component* with a new
-ADR — this decision does not forbid the crate forever, it sets the default.
+ADR - this decision does not forbid the crate forever, it sets the default.
 
 ## Consequences
 

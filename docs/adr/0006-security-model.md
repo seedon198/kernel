@@ -9,13 +9,13 @@ Given a microkernel ([ADR 0004](0004-kernel-architecture.md)) whose point is a
 minimal TCB, we need a model for *authority*: how a task is granted the right
 to use a resource (memory, a device, another task). The model shapes every
 interface in the system. It must enforce least privilege and make privilege
-flows auditable — both for hardening and so that "offensive" capabilities are
+flows auditable - both for hardening and so that "offensive" capabilities are
 contained rather than ambient.
 
 ## Options considered
 
 1. **Unix-style (users, groups, rwx, root)**: familiar, but built on *ambient
-   authority* — a process acts with all its user's privileges implicitly, and
+   authority* - a process acts with all its user's privileges implicitly, and
    "root" is all-powerful. Poor fit for least privilege and a small TCB.
 2. **ACLs per object**: finer-grained than Unix, but still ambient (the subject
    is identified, then checked) and centralizes policy.

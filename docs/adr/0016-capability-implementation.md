@@ -5,7 +5,7 @@
 
 ## Context
 
-[ADR 0006](0006-security-model.md) fixed *what* the security model is — seL4-style
+[ADR 0006](0006-security-model.md) fixed *what* the security model is - seL4-style
 unforgeable capabilities, no ambient authority, attenuation-only derivation.
 M3 implements it. This ADR records the *how*, and the sequencing, since IPC has
 a prerequisite the roadmap places later.
@@ -22,8 +22,8 @@ M4 adds threads and, on top of them, blocking `Endpoint` IPC and the user→kern
 
 **2. Capability space: a flat per-task table.** A `CapSpace` is a (two-level,
 for growth) table of slots; a `CapId` is an index. Lookup is O(1); the structure
-is small and auditable. We deliberately do **not** adopt seL4's CNode radix tree
-— its sparse flexibility is not worth the complexity at our stage. The capability
+is small and auditable. We deliberately do **not** adopt seL4's CNode radix tree;
+its sparse flexibility is not worth the complexity at our stage. The capability
 *algebra* (rights, attenuation, copy/mint/move/delete) lives in a pure
 `capability` crate, `#![forbid(unsafe_code)]` and host-tested, generic over the
 object-handle type so the kernel binds it to real objects.
@@ -32,7 +32,7 @@ object-handle type so the kernel binds it to real objects.
 Kernel objects (`Frame`, `Endpoint`, `Thread`, `AddressSpace`, `Notification`,
 `CNode`, …) are created by **retyping** `Untyped` memory a task already holds;
 the kernel never allocates object storage from its own heap on a task's behalf.
-A task therefore spends its own memory budget, and cannot exhaust kernel memory —
+A task therefore spends its own memory budget, and cannot exhaust kernel memory -
 a real security property, and what [security-model.md](../architecture/security-model.md)
 already commits to. The root server receives `Untyped` covering free RAM at boot
 and hands out attenuated capabilities from there.
@@ -47,7 +47,7 @@ can never gain rights or widen a range. `Endpoint` capabilities carry a **badge*
 - The pure capability core (rights, attenuation, cap space) is unit-tested on
   the host with no hardware; the kernel instantiates it over real object handles.
 - Untyped/retype adds machinery (region accounting, object initialization in
-  retyped memory via the HHDM — the `unsafe` for that stays in `hal`), but gives
+  retyped memory via the HHDM - the `unsafe` for that stays in `hal`), but gives
   a bounded-kernel-memory guarantee from day one.
 - The capability-invocation API is defined in M3 as kernel functions; M4 wires
   the ring-3 `syscall` entry to them, so there is a clean seam.

@@ -1,15 +1,15 @@
 //! Interrupt Descriptor Table and the interrupt/exception dispatch path.
 //!
 //! We install a 256-entry IDT whose gates point at hand-written assembly stubs
-//! (generated below). Each stub normalizes the stack — pushing a dummy error
-//! code for vectors the CPU does not supply one for — pushes its vector number,
+//! (generated below). Each stub normalizes the stack - pushing a dummy error
+//! code for vectors the CPU does not supply one for - pushes its vector number,
 //! and jumps to a common stub that saves all general-purpose registers into a
 //! [`TrapFrame`] and calls [`idt_dispatch`].
 //!
 //! Dispatch is table-driven ([ADR 0009] hand-rolled): a per-vector table of
 //! registered handlers lets IRQ drivers (M3), IPIs, and others hook in at
 //! runtime via [`register_handler`]. Vectors without a handler fall back to a
-//! default that prints a diagnostic report; CPU exceptions (0–31) that are not
+//! default that prints a diagnostic report; CPU exceptions (0-31) that are not
 //! recoverable then halt.
 //!
 //! References: Intel SDM Vol. 3A ch. 6 (interrupt & exception handling).
@@ -74,7 +74,7 @@ const IDT_LEN: usize = 256;
 static HANDLERS: [AtomicU64; IDT_LEN] = [const { AtomicU64::new(0) }; IDT_LEN];
 
 /// Register `handler` for `vector`, replacing any previous one. Drivers use
-/// this for IRQ vectors (M3); the architecture reserves 0–31 for exceptions.
+/// this for IRQ vectors (M3); the architecture reserves 0-31 for exceptions.
 pub fn register_handler(vector: u8, handler: Handler) {
     HANDLERS[vector as usize].store(handler as usize as u64, Ordering::Release);
 }
@@ -204,12 +204,12 @@ fn default_exception(frame: &mut TrapFrame) {
     );
 
     if frame.vector == 3 {
-        let _ = writeln!(com1, "  (breakpoint — resuming)");
+        let _ = writeln!(com1, "  (breakpoint - resuming)");
         return;
     }
 
     crate::backtrace::print_from(&mut com1, frame.rbp);
-    let _ = writeln!(com1, "  unrecoverable exception — halting");
+    let _ = writeln!(com1, "  unrecoverable exception - halting");
     crate::cpu::halt_loop();
 }
 

@@ -15,7 +15,7 @@ env:
 # NOTE: do not set a global RUSTFLAGS here. As an env var it *replaces* (does
 # not merge with) the `[target.x86_64-unknown-none]` rustflags in
 # .cargo/config.toml, which carry the kernel's linker script and relocation
-# model — clobbering them breaks the higher-half link. Warnings are gated by
+# model - clobbering them breaks the higher-half link. Warnings are gated by
 # the clippy steps below (`-D warnings`), which also catch rustc warnings.
 
 jobs:
@@ -63,6 +63,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check unsafe is confined to hal
         run: ./scripts/check-unsafe.sh
+
+  # House style: no en or em dashes anywhere in the repository.
+  dash-policy:
+    name: Dash policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for en and em dashes
+        run: ./scripts/check-dashes.sh
 
   # Supply-chain: advisories, licenses, sources, bans.
   supply-chain:

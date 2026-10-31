@@ -1,4 +1,4 @@
-//! The Local APIC and its timer — the source of preemption (#80).
+//! The Local APIC and its timer - the source of preemption (#80).
 //!
 //! [`init`] maps the xAPIC register page (uncached, at a kernel virtual address
 //! the caller chooses), enables the APIC, and installs the spurious-interrupt
@@ -9,7 +9,7 @@
 //! We use xAPIC (MMIO) mode, which every x86-64 CPU and QEMU's default CPU
 //! models support; x2APIC (MSR access) is a later refinement.
 //!
-//! References: Intel SDM Vol. 3A ch. 11 (APIC) — §11.4 (the APIC base MSR and
+//! References: Intel SDM Vol. 3A ch. 11 (APIC) - §11.4 (the APIC base MSR and
 //! register map), §11.5.4 (the APIC timer), §11.9 (spurious interrupts).
 
 use core::sync::atomic::{AtomicU64, Ordering};
@@ -40,7 +40,7 @@ const REG_TIMER_DIVIDE: usize = 0x3E0;
 const SVR_ENABLE: u32 = 1 << 8;
 /// LVT bit 16: entry masked.
 const LVT_MASKED: u32 = 1 << 16;
-/// LVT timer bits 17–18 = 01: periodic mode.
+/// LVT timer bits 17-18 = 01: periodic mode.
 const LVT_TIMER_PERIODIC: u32 = 1 << 17;
 /// Divide-configuration encoding for "divide by 16".
 const TIMER_DIVIDE_BY_16: u32 = 0b0011;
